@@ -78,6 +78,7 @@ $(OUT_DIR)/%.vpd: $(MEM_DIR)/%.hex $(SIM_DIR)/simv
 	$(SIM_DIR)/simv $(SIMV_OPTS) +max_cycles=$(MAX_CYCLES) +loadmem=$< +vpdfile=$@ && [ $$PIPESTATUS -eq 0 ]
 
 $(SIM_DIR)/simv: $(VCS_TOP) $(SIM_SRCS) $(DESIGN_SRCS) $(HDRS)
+	mkdir -p sim
 	$(VCS) $(VCS_OPTS) -o $@ $(VCS_TOP) $(SIM_SRCS) $(DESIGN_SRCS)
 
 $(SIM_DIR)/Vvscale_benchmark_top: $(VERILATOR_TOP) $(DESIGN_SRCS) $(HDRS) $(VERILATOR_CPP_TB)
