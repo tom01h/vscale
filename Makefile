@@ -75,6 +75,7 @@ run-asm-tests: $(TEST_VPD_FILES)
 verilator-sim: $(SIM_DIR)/Vvscale_benchmark_top
 
 $(OUT_DIR)/%.vpd: $(MEM_DIR)/%.hex $(SIM_DIR)/simv
+	mkdir -p output
 	$(SIM_DIR)/simv $(SIMV_OPTS) +max_cycles=$(MAX_CYCLES) +loadmem=$< +vpdfile=$@ && [ $$PIPESTATUS -eq 0 ]
 
 $(SIM_DIR)/simv: $(VCS_TOP) $(SIM_SRCS) $(DESIGN_SRCS) $(HDRS)
