@@ -51,7 +51,7 @@ module vscale_hex_tb();
          $readmemh(loadmem, hexfile);
          for (i = 0; i < hexfile_words; i = i + 1) begin
             for (j = 0; j < 4; j = j + 1) begin
-               DUT.mem.mem[4*i+j] = hexfile[i][32*j+:32];
+               DUT.hasti_mem.mem[4*i+j] = hexfile[i][32*j+:32];
             end
          end
       end

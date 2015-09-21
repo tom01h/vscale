@@ -43,6 +43,14 @@ module vscale_sim_top(
 
    wire                                            htif_reset;
 
+   wire                                            htif_ipi_req_ready = 0;
+   wire                                            htif_ipi_req_valid;
+   wire                                            htif_ipi_req_data;
+   wire                                            htif_ipi_resp_ready;
+   wire                                            htif_ipi_resp_valid = 0;
+   wire                                            htif_ipi_resp_data = 0;
+   wire                                            htif_debug_stats_pcr;
+   
    assign resetn = ~reset;
    assign htif_reset = reset;
 
@@ -80,40 +88,40 @@ module vscale_sim_top(
                       .htif_pcr_resp_valid(htif_pcr_resp_valid),
                       .htif_pcr_resp_ready(htif_pcr_resp_ready),
                       .htif_pcr_resp_data(htif_pcr_resp_data),
-                      .htif_ipi_req_ready(1'b0),
-                      .htif_ipi_req_valid(),
-                      .htif_ipi_req_data(),
-                      .htif_ipi_resp_ready(),
-                      .htif_ipi_resp_valid(1'b0),
-                      .htif_ipi_resp_data(1'b0),
-                      .htif_debug_stats_pcr()
+                      .htif_ipi_req_ready(htif_ipi_req_ready),
+                      .htif_ipi_req_valid(htif_ipi_req_valid),
+                      .htif_ipi_req_data(htif_ipi_req_data),
+                      .htif_ipi_resp_ready(htif_ipi_resp_ready),
+                      .htif_ipi_resp_valid(htif_ipi_resp_valid),
+                      .htif_ipi_resp_data(htif_ipi_resp_data),
+                      .htif_debug_stats_pcr(htif_debug_stats_pcr)
                       );
 
-   vscale_dp_hasti_sram mem(
-                            .hclk(clk),
-                            .hresetn(resetn),
-                            .p1_haddr(imem_haddr),
-                            .p1_hwrite(imem_hwrite),
-                            .p1_hsize(imem_hsize),
-                            .p1_hburst(imem_hburst),
-                            .p1_hmastlock(imem_hmastlock),
-                            .p1_hprot(imem_hprot),
-                            .p1_htrans(imem_htrans),
-                            .p1_hwdata(imem_hwdata),
-                            .p1_hrdata(imem_hrdata),
-                            .p1_hready(imem_hready),
-                            .p1_hresp(imem_hresp),
-                            .p0_haddr(dmem_haddr),
-                            .p0_hwrite(dmem_hwrite),
-                            .p0_hsize(dmem_hsize),
-                            .p0_hburst(dmem_hburst),
-                            .p0_hmastlock(dmem_hmastlock),
-                            .p0_hprot(dmem_hprot),
-                            .p0_htrans(dmem_htrans),
-                            .p0_hwdata(dmem_hwdata),
-                            .p0_hrdata(dmem_hrdata),
-                            .p0_hready(dmem_hready),
-                            .p0_hresp(dmem_hresp)
-                            );
+   vscale_dp_hasti_sram hasti_mem(
+                                  .hclk(clk),
+                                  .hresetn(resetn),
+                                  .p1_haddr(imem_haddr),
+                                  .p1_hwrite(imem_hwrite),
+                                  .p1_hsize(imem_hsize),
+                                  .p1_hburst(imem_hburst),
+                                  .p1_hmastlock(imem_hmastlock),
+                                  .p1_hprot(imem_hprot),
+                                  .p1_htrans(imem_htrans),
+                                  .p1_hwdata(imem_hwdata),
+                                  .p1_hrdata(imem_hrdata),
+                                  .p1_hready(imem_hready),
+                                  .p1_hresp(imem_hresp),
+                                  .p0_haddr(dmem_haddr),
+                                  .p0_hwrite(dmem_hwrite),
+                                  .p0_hsize(dmem_hsize),
+                                  .p0_hburst(dmem_hburst),
+                                  .p0_hmastlock(dmem_hmastlock),
+                                  .p0_hprot(dmem_hprot),
+                                  .p0_htrans(dmem_htrans),
+                                  .p0_hwdata(dmem_hwdata),
+                                  .p0_hrdata(dmem_hrdata),
+                                  .p0_hready(dmem_hready),
+                                  .p0_hresp(dmem_hresp)
+                                  );
 
 endmodule // vscale_sim_top
