@@ -35,7 +35,7 @@ VCS_OPTS = -PP -notice -line +lint=all,noVCDE,noUI +v2k -timescale=1ns/10ps -qui
 	+vc+list -CC "-I$(VCS_HOME)/include" \
 	-CC "-std=c++11" \
 
-MAX_CYCLES = 10000000
+MAX_CYCLES = 100000
 
 SIMV_OPTS = -k $(OUT_DIR)/ucli.key -q
 
@@ -88,11 +88,11 @@ verilator-run-asm-tests: $(VERILATOR_VCD_FILES)
 
 $(OUT_DIR)/%.vpd: $(MEM_DIR)/%.hex $(SIM_DIR)/simv
 	mkdir -p output
-	$(SIM_DIR)/simv $(SIMV_OPTS) +max_cycles=$(MAX_CYCLES) +loadmem=$< +vpdfile=$@ && [ $$PIPESTATUS -eq 0 ]
+	$(SIM_DIR)/simv $(SIMV_OPTS) +max-cycles=$(MAX_CYCLES) +loadmem=$< +vpdfile=$@ && [ $$PIPESTATUS -eq 0 ]
 
 $(OUT_DIR)/%.verilator.vcd: $(MEM_DIR)/%.hex $(SIM_DIR)/Vvscale_verilator_top
 	mkdir -p output
-	$(SIM_DIR)/Vvscale_verilator_top +max_cycles=$(MAX_CYCLES) +loadmem=$< --vcdfile=$@ && [ $$PIPESTATUS -eq 0 ]
+	$(SIM_DIR)/Vvscale_verilator_top +max-cycles=$(MAX_CYCLES) +loadmem=$< --vcdfile=$@ && [ $$PIPESTATUS -eq 0 ]
 
 $(SIM_DIR)/simv: $(VCS_TOP) $(SIM_SRCS) $(DESIGN_SRCS) $(HDRS)
 	mkdir -p sim

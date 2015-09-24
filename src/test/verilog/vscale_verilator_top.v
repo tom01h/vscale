@@ -11,10 +11,10 @@ module vscale_verilator_top(
    wire htif_pcr_resp_valid;
    wire [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data;
 
-   reg [255:0]                reason = 0;
-   reg [1023:0]               loadmem = 0;
-   reg [  63:0]               max_cycles = 0;
-   reg [  63:0]               trace_count = 0;
+   reg [  63:0]               max_cycles;
+   reg [  63:0]               trace_count;
+   reg [255:0]                reason;
+   reg [1023:0]               loadmem;
    integer                    stderr = 32'h80000002;
 
    reg [127:0]                hexfile [hexfile_words-1:0];
@@ -39,9 +39,12 @@ module vscale_verilator_top(
    integer tmp = 0;
    
    initial begin
-      tmp = $value$plusargs("max-cycles=%d", max_cycles);
-      tmp = $value$plusargs("loadmem=%s", loadmem);
-      if (loadmem) begin
+      loadmem = 0;
+      reason = 0;
+      max_cycles = 0;
+      trace_count = 0;
+      if ($value$plusargs("max-cycles=%d", max_cycles) && $value$plusargs("loadmem=%s", loadmem)) begin
+         $display("Mem %s, current: %d, max: %d\n", loadmem, trace_count, max_cycles);
          $readmemh(loadmem, hexfile);
          for (i = 0; i < hexfile_words; i = i + 1) begin
             for (j = 0; j < 4; j = j + 1) begin
@@ -49,13 +52,14 @@ module vscale_verilator_top(
             end
          end
       end
+      $display("Current: %d, max: %d\n", trace_count, max_cycles);
    end // initial begin
 
    always @(posedge clk) begin
-      trace_count <= trace_count + 1;
-
+      trace_count = trace_count + 1;
+      // $display("Current: %d, max: %d\n", trace_count, max_cycles);
       if (max_cycles > 0 && trace_count > max_cycles)
-        reason <= "timeout";
+        reason = "timeout";
 
       if (!reset) begin
          if (htif_pcr_resp_valid && htif_pcr_resp_data != 0) begin
