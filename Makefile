@@ -35,7 +35,7 @@ VCS_OPTS = -PP -notice -line +lint=all,noVCDE,noUI +v2k -timescale=1ns/10ps -qui
 	+vc+list -CC "-I$(VCS_HOME)/include" \
 	-CC "-std=c++11" \
 
-MAX_CYCLES = 100000
+MAX_CYCLES = 1000000
 
 SIMV_OPTS = -k $(OUT_DIR)/ucli.key -q
 

@@ -44,7 +44,6 @@ module vscale_verilator_top(
       max_cycles = 0;
       trace_count = 0;
       if ($value$plusargs("max-cycles=%d", max_cycles) && $value$plusargs("loadmem=%s", loadmem)) begin
-         $display("Mem %s, current: %d, max: %d\n", loadmem, trace_count, max_cycles);
          $readmemh(loadmem, hexfile);
          for (i = 0; i < hexfile_words; i = i + 1) begin
             for (j = 0; j < 4; j = j + 1) begin
@@ -52,7 +51,6 @@ module vscale_verilator_top(
             end
          end
       end
-      $display("Current: %d, max: %d\n", trace_count, max_cycles);
    end // initial begin
 
    always @(posedge clk) begin

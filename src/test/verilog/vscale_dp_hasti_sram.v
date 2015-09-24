@@ -27,7 +27,7 @@ module vscale_dp_hasti_sram(
                             output                         p1_hresp
                             );
 
-   parameter nwords = 1024;
+   parameter nwords = 65536;
 
    localparam s_w1 = 0;
    localparam s_w2 = 1;
@@ -117,19 +117,6 @@ module vscale_dp_hasti_sram(
    assign p1_hrdata = (p0_wdata & p1_rmask) | (p1_rdata & ~p1_rmask);
    assign p1_hready = 1'b1;
    assign p1_hresp = `HASTI_RESP_OKAY;
-
-   /**************
-    INITIALIZATION
-    **************/
-
-`ifndef SYNTHESIS
-   integer                     reset_addr;
-   initial begin
-      for (reset_addr = 0; reset_addr < nwords; reset_addr = reset_addr + 1) begin
-         mem[reset_addr] = 0;
-      end
-   end
-`endif
 
 endmodule // vscale_dp_hasti_sram
 
