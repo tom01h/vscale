@@ -18,6 +18,8 @@ VERILATOR_OPTS = \
 	-Wall \
 	-Wno-WIDTH \
 	-Wno-UNUSED \
+	-Wno-BLKSEQ \
+	-Wno-UNOPTFLAT \
 	--cc \
 	-I$(V_SRC_DIR) \
 	+1364-2001ext+v \
