@@ -1,3 +1,5 @@
+SHELL = /bin/bash
+
 include Makefrag
 
 V_SRC_DIR = src/main/verilog
