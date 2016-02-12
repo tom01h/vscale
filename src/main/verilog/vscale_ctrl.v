@@ -5,49 +5,51 @@
 `include "vscale_md_constants.vh"
 
 module vscale_ctrl(
-                   input                              clk,
-                   input                              reset,
-                   input [`INST_WIDTH-1:0]            inst_DX,
-                   input                              imem_wait,
-                   input                              imem_badmem_e,
-                   input                              dmem_wait,
-                   input                              dmem_badmem_e,
-                   input                              cmp_true,
-                   input [`PRV_WIDTH-1:0]             prv,
+                   input 			      clk,
+                   input 			      reset,
+                   input [`INST_WIDTH-1:0] 	      inst_DX,
+                   input 			      imem_wait,
+                   input 			      imem_badmem_e,
+                   input 			      dmem_wait,
+                   input 			      dmem_badmem_e,
+                   input 			      cmp_true,
+                   input [`PRV_WIDTH-1:0] 	      prv,
                    output reg [`PC_SRC_SEL_WIDTH-1:0] PC_src_sel,
                    output reg [`IMM_TYPE_WIDTH-1:0]   imm_type,
-                   output                             bypass_rs1,
-                   output                             bypass_rs2,
+                   output 			      bypass_rs1,
+                   output 			      bypass_rs2,
                    output reg [`SRC_A_SEL_WIDTH-1:0]  src_a_sel,
                    output reg [`SRC_B_SEL_WIDTH-1:0]  src_b_sel,
                    output reg [`ALU_OP_WIDTH-1:0]     alu_op,
-                   output wire                        dmem_en,
-                   output wire                        dmem_wen,
-                   output wire [2:0]                  dmem_size,
+                   output wire 			      dmem_en,
+                   output wire 			      dmem_wen,
+                   output wire [2:0] 		      dmem_size,
                    output wire [`MEM_TYPE_WIDTH-1:0]  dmem_type,
-                   output                             md_req_valid,
-                   input                              md_req_ready,
-                   output reg                         md_req_in_1_signed,
-                   output reg                         md_req_in_2_signed,
+                   output 			      md_req_valid,
+                   input 			      md_req_ready,
+                   output reg 			      md_req_in_1_signed,
+                   output reg 			      md_req_in_2_signed,
                    output reg [`MD_OP_WIDTH-1:0]      md_req_op,
                    output reg [`MD_OUT_SEL_WIDTH-1:0] md_req_out_sel,
-                   input                              md_resp_valid,
-                   output wire                        eret,
+                   input 			      md_resp_valid,
+                   output wire 			      eret,
                    output reg [`CSR_CMD_WIDTH-1:0]    csr_cmd,
-                   output reg                         csr_imm_sel,
-                   input                              illegal_csr_access,
-                   output wire                        wr_reg_WB,
+                   output reg 			      csr_imm_sel,
+                   input 			      illegal_csr_access,
+		   input 			      interrupt_pending,
+		   input 			      interrupt_taken,
+                   output wire 			      wr_reg_WB,
                    output reg [`REG_ADDR_WIDTH-1:0]   reg_to_wr_WB,
                    output reg [`WB_SRC_SEL_WIDTH-1:0] wb_src_sel_WB,
-                   output wire                        stall_IF,
-                   output wire                        kill_IF,
-                   output wire                        stall_DX,
-                   output wire                        kill_DX,
-                   output wire                        stall_WB,
-                   output wire                        kill_WB,
-                   output wire                        exception_WB,
+                   output wire 			      stall_IF,
+                   output wire 			      kill_IF,
+                   output wire 			      stall_DX,
+                   output wire 			      kill_DX,
+                   output wire 			      stall_WB,
+                   output wire 			      kill_WB,
+                   output wire 			      exception_WB,
                    output wire [`ECODE_WIDTH-1:0]     exception_code_WB,
-                   output wire                        retire_WB
+                   output wire 			      retire_WB
                    );
 
    // IF stage ctrl pipeline registers
@@ -94,7 +96,9 @@ module vscale_ctrl(
    wire                                               killed_DX;
    reg                                                uses_md_unkilled;
    wire                                               uses_md;
-
+   reg 						      wfi_unkilled_DX;
+   wire 					      wfi_DX;
+   
    // WB stage ctrl pipeline registers
    reg                                                wr_reg_unkilled_WB;
    reg                                                had_ex_WB;
@@ -103,7 +107,8 @@ module vscale_ctrl(
    reg                                                dmem_en_WB;
    reg                                                prev_killed_WB;
    reg                                                uses_md_WB;
-
+   reg 						      wfi_unkilled_WB;
+   
    // WB stage ctrl signals
    wire                                               ex_WB;
    reg [`ECODE_WIDTH-1:0]                             ex_code_WB;
@@ -111,7 +116,8 @@ module vscale_ctrl(
    wire                                               exception = ex_WB;
    wire                                               killed_WB;
    wire                                               load_in_WB;
-
+   wire 					      active_wfi_WB;
+   
    // Hazard signals
    wire                                               load_use;
    reg                                                uses_rs1;
@@ -130,8 +136,9 @@ module vscale_ctrl(
       end
    end
 
-   assign kill_IF = stall_IF || ex_IF || ex_DX || ex_WB || redirect || replay_IF;
-   assign stall_IF = ((imem_wait && !redirect) || stall_DX) && !exception;
+   // interrupts kill IF, DX instructions -- WB may commit
+   assign kill_IF = stall_IF || ex_IF || ex_DX || ex_WB || redirect || replay_IF || interrupt_taken;
+   assign stall_IF = ((imem_wait && !redirect) || stall_DX || wfi_DX) && !exception;
    assign ex_IF = imem_badmem_e && !imem_wait && !redirect && !replay_IF;
 
    // DX stage ctrl
@@ -146,7 +153,8 @@ module vscale_ctrl(
       end
    end
 
-   assign kill_DX = stall_DX || ex_DX || ex_WB;
+   // interrupts kill IF, DX instructions -- WB may commit
+   assign kill_DX = stall_DX || ex_DX || ex_WB || interrupt_taken;
    assign stall_DX = stall_WB || load_use || raw_on_busy_md
                      || (fence_i && store_in_WB) || (uses_md && !md_req_ready);
    assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
@@ -205,6 +213,7 @@ module vscale_ctrl(
       wr_reg_unkilled_DX = 1'b0;
       wb_src_sel_DX = `WB_SRC_ALU;
       uses_md_unkilled = 1'b0;
+      wfi_unkilled_DX = 1'b0;
       case (opcode)
         `RV32_LOAD : begin
            dmem_en_unkilled = 1'b1;
@@ -291,6 +300,7 @@ module vscale_ctrl(
                         else
                           eret_unkilled = 1'b1;
                      end
+		     `RV32_FUNCT12_WFI : wfi_unkilled_DX = 1'b1;
                      default : illegal_instruction = 1'b1;
                    endcase // case (funct12)
                 end // if ((rs1_addr == 0) && (reg_to_wr_DX == 0))
@@ -390,11 +400,12 @@ module vscale_ctrl(
    assign dmem_wen = dmem_wen_unkilled && !kill_DX;
    assign wr_reg_DX = wr_reg_unkilled_DX && !kill_DX;
    assign uses_md = uses_md_unkilled && !kill_DX;
-
+   assign wfi_DX = wfi_unkilled_DX && !kill_DX;
+   
    assign redirect = branch_taken || jal || jalr || eret;
 
    always @(*) begin
-      if (exception) begin
+      if (exception || interrupt_taken) begin
          PC_src_sel = `PC_HANDLER;
       end else if (replay_IF || (stall_IF && !imem_wait)) begin
          PC_src_sel = `PC_REPLAY;
@@ -421,6 +432,7 @@ module vscale_ctrl(
          store_in_WB <= 0;
          dmem_en_WB <= 0;
          uses_md_WB <= 0;
+	 wfi_unkilled_WB <= 0;
       end else if (!stall_WB) begin
          prev_killed_WB <= killed_DX;
          had_ex_WB <= ex_DX;
@@ -431,11 +443,17 @@ module vscale_ctrl(
          store_in_WB <= dmem_wen;
          dmem_en_WB <= dmem_en;
          uses_md_WB <= uses_md;
+	 wfi_unkilled_WB <= wfi_DX;
       end
    end
 
+   // WFI handling
+   // can't be killed while in WB stage
+   assign active_wfi_WB = !prev_killed_WB && wfi_unkilled_WB 
+			  && !(interrupt_taken || interrupt_pending);
+
    assign kill_WB = stall_WB || ex_WB;
-   assign stall_WB = (dmem_wait && dmem_en_WB) || (uses_md_WB && !md_resp_valid);
+   assign stall_WB = (dmem_wait && dmem_en_WB) || (uses_md_WB && !md_resp_valid) || active_wfi_WB;
    assign dmem_access_exception = dmem_badmem_e && !stall_WB;
    assign ex_WB = had_ex_WB || dmem_access_exception;
    assign killed_WB = prev_killed_WB || kill_WB;

@@ -43,12 +43,12 @@ module vscale_sim_top(
 
    wire                                            htif_reset;
 
-   wire                                            htif_ipi_req_ready = 0;
+   wire                                            htif_ipi_req_ready = 1'b0;
    wire                                            htif_ipi_req_valid;
    wire                                            htif_ipi_req_data;
    wire                                            htif_ipi_resp_ready;
-   wire                                            htif_ipi_resp_valid = 0;
-   wire                                            htif_ipi_resp_data = 0;
+   wire                                            htif_ipi_resp_valid = 1'b0;
+   wire                                            htif_ipi_resp_data = 1'b0;
    wire                                            htif_debug_stats_pcr;
    
    assign resetn = ~reset;
@@ -56,6 +56,7 @@ module vscale_sim_top(
 
    vscale_core vscale(
                       .clk(clk),
+		      .ext_interrupts(0),
                       .imem_haddr(imem_haddr),
                       .imem_hwrite(imem_hwrite),
                       .imem_hsize(imem_hsize),
