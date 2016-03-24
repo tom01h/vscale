@@ -138,7 +138,7 @@ module vscale_ctrl(
 
    // interrupts kill IF, DX instructions -- WB may commit
    assign kill_IF = stall_IF || ex_IF || ex_DX || ex_WB || redirect || replay_IF || interrupt_taken;
-   assign stall_IF = ((imem_wait && !redirect) || stall_DX || wfi_DX) && !exception;
+   assign stall_IF = ((imem_wait && !redirect) || stall_DX || wfi_DX) && !(exception || interrupt_taken);
    assign ex_IF = imem_badmem_e && !imem_wait && !redirect && !replay_IF;
 
    // DX stage ctrl
@@ -155,8 +155,8 @@ module vscale_ctrl(
 
    // interrupts kill IF, DX instructions -- WB may commit
    assign kill_DX = stall_DX || ex_DX || ex_WB || interrupt_taken;
-   assign stall_DX = stall_WB || load_use || raw_on_busy_md
-                     || (fence_i && store_in_WB) || (uses_md && !md_req_ready);
+   assign stall_DX = (stall_WB || load_use || raw_on_busy_md
+                     || (fence_i && store_in_WB) || (uses_md_unkilled && !md_req_ready)) && !(exception || interrupt_taken);
    assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
    assign ex_DX = had_ex_DX || ((new_ex_DX) && !stall_DX); // TODO: add causes
    assign killed_DX = prev_killed_DX || kill_DX;
@@ -453,7 +453,7 @@ module vscale_ctrl(
 			  && !(interrupt_taken || interrupt_pending);
 
    assign kill_WB = stall_WB || ex_WB;
-   assign stall_WB = (dmem_wait && dmem_en_WB) || (uses_md_WB && !md_resp_valid) || active_wfi_WB;
+   assign stall_WB = ((dmem_wait && dmem_en_WB) || (uses_md_WB && !md_resp_valid) || active_wfi_WB) && !exception;
    assign dmem_access_exception = dmem_badmem_e && !stall_WB;
    assign ex_WB = had_ex_WB || dmem_access_exception;
    assign killed_WB = prev_killed_WB || kill_WB;
