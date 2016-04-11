@@ -45,4 +45,5 @@ RV32_TESTS = \
 	rv32ui-p-sw \
 	rv32ui-p-xor \
 	rv32ui-p-xori \
+        rv32mi-p-wfi \
 

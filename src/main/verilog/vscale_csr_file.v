@@ -305,6 +305,8 @@ module vscale_csr_file(
          to_host <= 0;
          from_host <= 0;
          mtvec <= 'h100;
+         mtimecmp <= 0;
+         mscratch <= 0;
       end else begin
          cycle_full <= cycle_full + 1;
          time_full <= time_full + 1;

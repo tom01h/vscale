@@ -5,51 +5,51 @@
 `include "vscale_md_constants.vh"
 
 module vscale_ctrl(
-                   input 			      clk,
-                   input 			      reset,
-                   input [`INST_WIDTH-1:0] 	      inst_DX,
-                   input 			      imem_wait,
-                   input 			      imem_badmem_e,
-                   input 			      dmem_wait,
-                   input 			      dmem_badmem_e,
-                   input 			      cmp_true,
-                   input [`PRV_WIDTH-1:0] 	      prv,
+                   input                              clk,
+                   input                              reset,
+                   input [`INST_WIDTH-1:0]            inst_DX,
+                   input                              imem_wait,
+                   input                              imem_badmem_e,
+                   input                              dmem_wait,
+                   input                              dmem_badmem_e,
+                   input                              cmp_true,
+                   input [`PRV_WIDTH-1:0]             prv,
                    output reg [`PC_SRC_SEL_WIDTH-1:0] PC_src_sel,
                    output reg [`IMM_TYPE_WIDTH-1:0]   imm_type,
-                   output 			      bypass_rs1,
-                   output 			      bypass_rs2,
+                   output                             bypass_rs1,
+                   output                             bypass_rs2,
                    output reg [`SRC_A_SEL_WIDTH-1:0]  src_a_sel,
                    output reg [`SRC_B_SEL_WIDTH-1:0]  src_b_sel,
                    output reg [`ALU_OP_WIDTH-1:0]     alu_op,
-                   output wire 			      dmem_en,
-                   output wire 			      dmem_wen,
-                   output wire [2:0] 		      dmem_size,
+                   output wire                        dmem_en,
+                   output wire                        dmem_wen,
+                   output wire [2:0]                  dmem_size,
                    output wire [`MEM_TYPE_WIDTH-1:0]  dmem_type,
-                   output 			      md_req_valid,
-                   input 			      md_req_ready,
-                   output reg 			      md_req_in_1_signed,
-                   output reg 			      md_req_in_2_signed,
+                   output                             md_req_valid,
+                   input                              md_req_ready,
+                   output reg                         md_req_in_1_signed,
+                   output reg                         md_req_in_2_signed,
                    output reg [`MD_OP_WIDTH-1:0]      md_req_op,
                    output reg [`MD_OUT_SEL_WIDTH-1:0] md_req_out_sel,
-                   input 			      md_resp_valid,
-                   output wire 			      eret,
-                   output reg [`CSR_CMD_WIDTH-1:0]    csr_cmd,
-                   output reg 			      csr_imm_sel,
-                   input 			      illegal_csr_access,
-		   input 			      interrupt_pending,
-		   input 			      interrupt_taken,
-                   output wire 			      wr_reg_WB,
+                   input                              md_resp_valid,
+                   output wire                        eret,
+                   output [`CSR_CMD_WIDTH-1:0]        csr_cmd,
+                   output reg                         csr_imm_sel,
+                   input                              illegal_csr_access,
+		   input                              interrupt_pending,
+		   input                              interrupt_taken,
+                   output wire                        wr_reg_WB,
                    output reg [`REG_ADDR_WIDTH-1:0]   reg_to_wr_WB,
                    output reg [`WB_SRC_SEL_WIDTH-1:0] wb_src_sel_WB,
-                   output wire 			      stall_IF,
-                   output wire 			      kill_IF,
-                   output wire 			      stall_DX,
-                   output wire 			      kill_DX,
-                   output wire 			      stall_WB,
-                   output wire 			      kill_WB,
-                   output wire 			      exception_WB,
+                   output wire                        stall_IF,
+                   output wire                        kill_IF,
+                   output wire                        stall_DX,
+                   output wire                        kill_DX,
+                   output wire                        stall_WB,
+                   output wire                        kill_WB,
+                   output wire                        exception_WB,
                    output wire [`ECODE_WIDTH-1:0]     exception_code_WB,
-                   output wire 			      retire_WB
+                   output wire                        retire_WB
                    );
 
    // IF stage ctrl pipeline registers
@@ -98,6 +98,7 @@ module vscale_ctrl(
    wire                                               uses_md;
    reg 						      wfi_unkilled_DX;
    wire 					      wfi_DX;
+   reg [`CSR_CMD_WIDTH-1:0]                           csr_cmd_unkilled;
    
    // WB stage ctrl pipeline registers
    reg                                                wr_reg_unkilled_WB;
@@ -200,7 +201,7 @@ module vscale_ctrl(
 
    always @(*) begin
       illegal_instruction = 1'b0;
-      csr_cmd = `CSR_IDLE;
+      csr_cmd_unkilled = `CSR_IDLE;
       csr_imm_sel = funct3[2];
       ecall = 1'b0;
       ebreak = 1'b0;
@@ -312,12 +313,12 @@ module vscale_ctrl(
                    endcase // case (funct12)
                 end // if ((rs1_addr == 0) && (reg_to_wr_DX == 0))
              end // case: `RV32_FUNCT3_PRIV
-             `RV32_FUNCT3_CSRRW : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
-             `RV32_FUNCT3_CSRRS : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
-             `RV32_FUNCT3_CSRRC : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
-             `RV32_FUNCT3_CSRRWI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
-             `RV32_FUNCT3_CSRRSI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
-             `RV32_FUNCT3_CSRRCI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
+             `RV32_FUNCT3_CSRRW : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
+             `RV32_FUNCT3_CSRRS : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
+             `RV32_FUNCT3_CSRRC : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
+             `RV32_FUNCT3_CSRRWI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
+             `RV32_FUNCT3_CSRRSI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
+             `RV32_FUNCT3_CSRRCI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
              default : illegal_instruction = 1'b1;
            endcase // case (funct3)
         end
@@ -408,7 +409,7 @@ module vscale_ctrl(
    assign wr_reg_DX = wr_reg_unkilled_DX && !kill_DX;
    assign uses_md = uses_md_unkilled && !kill_DX;
    assign wfi_DX = wfi_unkilled_DX && !kill_DX;
-   
+   assign csr_cmd = (kill_DX) ? `CSR_IDLE : csr_cmd_unkilled;
    assign redirect = branch_taken || jal || jalr || eret;
 
    always @(*) begin
