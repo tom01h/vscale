@@ -131,7 +131,8 @@ module vscale_ctrl(
    end
 
    assign kill_IF = stall_IF || ex_IF || ex_DX || ex_WB || redirect || replay_IF;
-   assign stall_IF = ((imem_wait && !redirect) || stall_DX) && !exception;
+   assign stall_IF = stall_DX ||
+                     ((imem_wait && !redirect) && !(ex_WB));
    assign ex_IF = imem_badmem_e && !imem_wait && !redirect && !replay_IF;
 
    // DX stage ctrl
@@ -146,11 +147,17 @@ module vscale_ctrl(
       end
    end
 
+   // Exceptions never show up falsely due to hazards -- don't get exceptions on stall
    assign kill_DX = stall_DX || ex_DX || ex_WB;
-   assign stall_DX = (stall_WB || load_use || raw_on_busy_md
-                     || (fence_i && store_in_WB) || (uses_md_unkilled && !md_req_ready)) && !exception;
+   assign stall_DX = stall_WB ||
+                     (( // internal hazards
+                        load_use ||
+                        raw_on_busy_md ||
+                        (fence_i && store_in_WB) ||
+                        (uses_md_unkilled && !md_req_ready)
+                        ) && !(ex_DX || ex_WB));
    assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
-   assign ex_DX = had_ex_DX || ((new_ex_DX) && !stall_DX); // TODO: add causes
+   assign ex_DX = had_ex_DX || new_ex_DX; // TODO: add causes
    assign killed_DX = prev_killed_DX || kill_DX;
 
    always @(*) begin
