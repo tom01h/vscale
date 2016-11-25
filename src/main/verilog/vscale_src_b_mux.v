@@ -1,12 +1,13 @@
 `include "vscale_ctrl_constants.vh"
 `include "rv32_opcodes.vh"
 
-module vscale_src_b_mux(
-                        input [`SRC_B_SEL_WIDTH-1:0] src_b_sel,
-                        input [`XPR_LEN-1:0]         imm,
-                        input [`XPR_LEN-1:0]         rs2_data,
-                        output reg [`XPR_LEN-1:0]    alu_src_b
-                        );
+module vscale_src_b_mux
+  (
+   input [`SRC_B_SEL_WIDTH-1:0] src_b_sel,
+   input [`XPR_LEN-1:0]         imm,
+   input [`XPR_LEN-1:0]         rs2_data,
+   output reg [`XPR_LEN-1:0]    alu_src_b
+   );
 
 
    always @(*) begin

@@ -1,14 +1,15 @@
 `include "vscale_alu_ops.vh"
 `include "rv32_opcodes.vh"
 
-module vscale_alu(
-                  input [`ALU_OP_WIDTH-1:0] op,
-                  input [`XPR_LEN-1:0]      in1,
-                  input [`XPR_LEN-1:0]      in2,
-                  output reg [`XPR_LEN-1:0] out
-                  );
+module vscale_alu
+  (
+   input [`ALU_OP_WIDTH-1:0] op,
+   input [`XPR_LEN-1:0]      in1,
+   input [`XPR_LEN-1:0]      in2,
+   output reg [`XPR_LEN-1:0] out
+   );
 
-   wire [`SHAMT_WIDTH-1:0]                  shamt;
+   wire [`SHAMT_WIDTH-1:0]   shamt;
 
    assign shamt = in2[`SHAMT_WIDTH-1:0];
 

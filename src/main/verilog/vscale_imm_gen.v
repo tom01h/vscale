@@ -1,11 +1,12 @@
 `include "vscale_ctrl_constants.vh"
 `include "rv32_opcodes.vh"
 
-module vscale_imm_gen(
-                      input [`XPR_LEN-1:0]        inst,
-                      input [`IMM_TYPE_WIDTH-1:0] imm_type,
-                      output reg [`XPR_LEN-1:0]   imm
-                      );
+module vscale_imm_gen
+  (
+   input [`XPR_LEN-1:0]        inst,
+   input [`IMM_TYPE_WIDTH-1:0] imm_type,
+   output reg [`XPR_LEN-1:0]   imm
+   );
 
    always @(*) begin
       case (imm_type)

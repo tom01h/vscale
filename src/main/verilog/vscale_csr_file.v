@@ -3,92 +3,93 @@
 `include "vscale_ctrl_constants.vh"
 `include "vscale_platform_constants.vh"
 
-module vscale_csr_file(
-                       input 			    clk,
-		       input [`N_EXT_INTS-1:0] 	    ext_interrupts, 
-                       input 			    reset,
-                       input [`CSR_ADDR_WIDTH-1:0]  addr,
-                       input [`CSR_CMD_WIDTH-1:0]   cmd,
-                       input [`XPR_LEN-1:0] 	    wdata,
-                       output wire [`PRV_WIDTH-1:0] prv,
-                       output 			    illegal_access,
-                       output reg [`XPR_LEN-1:0]    rdata,
-                       input 			    retire,
-                       input 			    exception,
-                       input [`ECODE_WIDTH-1:0]     exception_code,
-                       input 			    eret,
-                       input [`XPR_LEN-1:0] 	    exception_load_addr,
-                       input [`XPR_LEN-1:0] 	    exception_PC,
-                       output [`XPR_LEN-1:0] 	    handler_PC,
-                       output [`XPR_LEN-1:0] 	    epc,
-		       output 			    interrupt_pending,
-		       output reg 		    interrupt_taken,
-                       input 			    htif_reset,
-                       input 			    htif_pcr_req_valid,
-                       output 			    htif_pcr_req_ready,
-                       input 			    htif_pcr_req_rw,
-                       input [`CSR_ADDR_WIDTH-1:0]  htif_pcr_req_addr,
-                       input [`HTIF_PCR_WIDTH-1:0]  htif_pcr_req_data,
-                       output 			    htif_pcr_resp_valid,
-                       input 			    htif_pcr_resp_ready,
-                       output [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data
-                       );
+module vscale_csr_file
+  (
+   input                        clk,
+   input [`N_EXT_INTS-1:0]      ext_interrupts, 
+   input                        reset,
+   input [`CSR_ADDR_WIDTH-1:0]  addr,
+   input [`CSR_CMD_WIDTH-1:0]   cmd,
+   input [`XPR_LEN-1:0]         wdata,
+   output wire [`PRV_WIDTH-1:0] prv,
+   output                       illegal_access,
+   output reg [`XPR_LEN-1:0]    rdata,
+   input                        retire,
+   input                        exception,
+   input [`ECODE_WIDTH-1:0]     exception_code,
+   input                        eret,
+   input [`XPR_LEN-1:0]         exception_load_addr,
+   input [`XPR_LEN-1:0]         exception_PC,
+   output [`XPR_LEN-1:0]        handler_PC,
+   output [`XPR_LEN-1:0]        epc,
+   output                       interrupt_pending,
+   output reg                   interrupt_taken,
+   input                        htif_reset,
+   input                        htif_pcr_req_valid,
+   output                       htif_pcr_req_ready,
+   input                        htif_pcr_req_rw,
+   input [`CSR_ADDR_WIDTH-1:0]  htif_pcr_req_addr,
+   input [`HTIF_PCR_WIDTH-1:0]  htif_pcr_req_data,
+   output                       htif_pcr_resp_valid,
+   input                        htif_pcr_resp_ready,
+   output [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data
+   );
 
    localparam HTIF_STATE_IDLE = 0;
    localparam HTIF_STATE_WAIT = 1;
 
-   reg [`HTIF_PCR_WIDTH-1:0]                        htif_rdata;
-   reg [`HTIF_PCR_WIDTH-1:0]                        htif_resp_data;
-   reg                                              htif_state;
-   reg                                              htif_fire;
-   reg                                              next_htif_state;
+   reg [`HTIF_PCR_WIDTH-1:0]    htif_rdata;
+   reg [`HTIF_PCR_WIDTH-1:0]    htif_resp_data;
+   reg                          htif_state;
+   reg                          htif_fire;
+   reg                          next_htif_state;
 
-   reg [`CSR_COUNTER_WIDTH-1:0]                     cycle_full;
-   reg [`CSR_COUNTER_WIDTH-1:0]                     time_full;
-   reg [`CSR_COUNTER_WIDTH-1:0]                     instret_full;
-   reg [5:0]                                        priv_stack;
-   reg [`XPR_LEN-1:0]                               mtvec;
-   reg [`XPR_LEN-1:0] 				    mie;
-   reg                                              mtip;
-   reg                                              msip;
-   reg [`XPR_LEN-1:0]                               mtimecmp;
-   reg [`CSR_COUNTER_WIDTH-1:0]                     mtime_full;
-   reg [`XPR_LEN-1:0]                               mscratch;
-   reg [`XPR_LEN-1:0]                               mepc;
-   reg [`ECODE_WIDTH-1:0]                           mecode;
-   reg                                              mint;
-   reg [`XPR_LEN-1:0]                               mbadaddr;
+   reg [`CSR_COUNTER_WIDTH-1:0] cycle_full;
+   reg [`CSR_COUNTER_WIDTH-1:0] time_full;
+   reg [`CSR_COUNTER_WIDTH-1:0] instret_full;
+   reg [5:0]                    priv_stack;
+   reg [`XPR_LEN-1:0]           mtvec;
+   reg [`XPR_LEN-1:0]           mie;
+   reg                          mtip;
+   reg                          msip;
+   reg [`XPR_LEN-1:0]           mtimecmp;
+   reg [`CSR_COUNTER_WIDTH-1:0] mtime_full;
+   reg [`XPR_LEN-1:0]           mscratch;
+   reg [`XPR_LEN-1:0]           mepc;
+   reg [`ECODE_WIDTH-1:0]       mecode;
+   reg                          mint;
+   reg [`XPR_LEN-1:0]           mbadaddr;
 
-   wire                                             ie;
+   wire                         ie;
 
-   wire [`XPR_LEN-1:0]                              mcpuid;
-   wire [`XPR_LEN-1:0]                              mimpid;
-   wire [`XPR_LEN-1:0]                              mhartid;
-   wire [`XPR_LEN-1:0]                              mstatus;
-   wire [`XPR_LEN-1:0]                              mtdeleg;
-   wire [`XPR_LEN-1:0]                              mip;
-   wire [`XPR_LEN-1:0]                              mcause;
+   wire [`XPR_LEN-1:0]          mcpuid;
+   wire [`XPR_LEN-1:0]          mimpid;
+   wire [`XPR_LEN-1:0]          mhartid;
+   wire [`XPR_LEN-1:0]          mstatus;
+   wire [`XPR_LEN-1:0]          mtdeleg;
+   wire [`XPR_LEN-1:0]          mip;
+   wire [`XPR_LEN-1:0]          mcause;
 
-   reg [`XPR_LEN-1:0]                               to_host;
-   reg [`XPR_LEN-1:0]                               from_host;
+   reg [`XPR_LEN-1:0]           to_host;
+   reg [`XPR_LEN-1:0]           from_host;
 
-   wire                                             mtimer_expired;
+   wire                         mtimer_expired;
 
-   wire                                             host_wen;
-   wire                                             system_en;
-   wire                                             system_wen;
-   wire                                             wen_internal;
-   wire                                             illegal_region;
-   reg                                              defined;
-   reg [`XPR_LEN-1:0]                               wdata_internal;
-   wire                                             uinterrupt;
-   wire                                             minterrupt;
-   reg [`ECODE_WIDTH-1:0]                           interrupt_code;
+   wire                         host_wen;
+   wire                         system_en;
+   wire                         system_wen;
+   wire                         wen_internal;
+   wire                         illegal_region;
+   reg                          defined;
+   reg [`XPR_LEN-1:0]           wdata_internal;
+   wire                         uinterrupt;
+   wire                         minterrupt;
+   reg [`ECODE_WIDTH-1:0]       interrupt_code;
 
-   wire                                             code_imem;
+   wire                         code_imem;
 
 
-   wire [`XPR_LEN-1:0]                              padded_prv = prv;
+   wire [`XPR_LEN-1:0]          padded_prv = prv;
    assign handler_PC = mtvec + (padded_prv << 5);
 
    assign prv = priv_stack[2:1];
@@ -209,13 +210,13 @@ module vscale_csr_file(
       if (reset) begin
          mie <= 0;
       end else if (wen_internal && addr == `CSR_ADDR_MIE) begin
-	 mie <= wdata_internal;
+         mie <= wdata_internal;
       end
    end // always @ (posedge clk)
 
    always @(posedge clk) begin
       if (interrupt_taken)
-	mepc <= (exception_PC & {{30{1'b1}},2'b0}) + `XPR_LEN'h4;
+        mepc <= (exception_PC & {{30{1'b1}},2'b0}) + `XPR_LEN'h4;
       if (exception)
         mepc <= exception_PC & {{30{1'b1}},2'b0};
       if (wen_internal && addr == `CSR_ADDR_MEPC)

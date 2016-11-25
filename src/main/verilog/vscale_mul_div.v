@@ -2,20 +2,21 @@
 `include "vscale_ctrl_constants.vh"
 `include "rv32_opcodes.vh"
 
-module vscale_mul_div(
-                      input                         clk,
-                      input                         reset,
-                      input                         req_valid,
-                      output                        req_ready,
-                      input                         req_in_1_signed,
-                      input                         req_in_2_signed,
-                      input [`MD_OP_WIDTH-1:0]      req_op,
-                      input [`MD_OUT_SEL_WIDTH-1:0] req_out_sel,
-                      input [`XPR_LEN-1:0]          req_in_1,
-                      input [`XPR_LEN-1:0]          req_in_2,
-                      output                        resp_valid,
-                      output [`XPR_LEN-1:0]         resp_result
-                      );
+module vscale_mul_div
+  (
+   input                         clk,
+   input                         reset,
+   input                         req_valid,
+   output                        req_ready,
+   input                         req_in_1_signed,
+   input                         req_in_2_signed,
+   input [`MD_OP_WIDTH-1:0]      req_op,
+   input [`MD_OUT_SEL_WIDTH-1:0] req_out_sel,
+   input [`XPR_LEN-1:0]          req_in_1,
+   input [`XPR_LEN-1:0]          req_in_2,
+   output                        resp_valid,
+   output [`XPR_LEN-1:0]         resp_result
+   );
 
    localparam md_state_width = 2;
    localparam s_idle = 0;
@@ -23,29 +24,29 @@ module vscale_mul_div(
    localparam s_setup_output = 2;
    localparam s_done = 3;
 
-   reg [md_state_width-1:0]                         state;
-   reg [md_state_width-1:0]                         next_state;
-   reg [`MD_OP_WIDTH-1:0]                           op;
-   reg [`MD_OUT_SEL_WIDTH-1:0]                      out_sel;
-   reg                                              negate_output;
-   reg [`DOUBLE_XPR_LEN-1:0]                        a;
-   reg [`DOUBLE_XPR_LEN-1:0]                        b;
-   reg [`LOG2_XPR_LEN-1:0]                          counter;
-   reg [`DOUBLE_XPR_LEN-1:0]                        result;
+   reg [md_state_width-1:0]      state;
+   reg [md_state_width-1:0]      next_state;
+   reg [`MD_OP_WIDTH-1:0]        op;
+   reg [`MD_OUT_SEL_WIDTH-1:0]   out_sel;
+   reg                           negate_output;
+   reg [`DOUBLE_XPR_LEN-1:0]     a;
+   reg [`DOUBLE_XPR_LEN-1:0]     b;
+   reg [`LOG2_XPR_LEN-1:0]       counter;
+   reg [`DOUBLE_XPR_LEN-1:0]     result;
 
-   wire [`XPR_LEN-1:0]                              abs_in_1;
-   wire                                             sign_in_1;
-   wire [`XPR_LEN-1:0]                              abs_in_2;
-   wire                                             sign_in_2;
+   wire [`XPR_LEN-1:0]           abs_in_1;
+   wire                          sign_in_1;
+   wire [`XPR_LEN-1:0]           abs_in_2;
+   wire                          sign_in_2;
 
-   wire                                             a_geq;
-   wire [`DOUBLE_XPR_LEN-1:0]                       result_muxed;
-   wire [`DOUBLE_XPR_LEN-1:0]                       result_muxed_negated;
-   wire [`XPR_LEN-1:0]                              final_result;
+   wire                          a_geq;
+   wire [`DOUBLE_XPR_LEN-1:0]    result_muxed;
+   wire [`DOUBLE_XPR_LEN-1:0]    result_muxed_negated;
+   wire [`XPR_LEN-1:0]           final_result;
 
    function [`XPR_LEN-1:0] abs_input;
-      input [`XPR_LEN-1:0]                          data;
-      input                                         is_signed;
+      input [`XPR_LEN-1:0]       data;
+      input                      is_signed;
       begin
          abs_input = (data[`XPR_LEN-1] == 1'b1 && is_signed) ? -data : data;
       end
