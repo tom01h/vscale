@@ -166,7 +166,8 @@ module vscale_ctrl
                         (fence_i && store_in_WB) ||
                         (uses_md_unkilled && !md_req_ready)
                         ) && !(ex_DX || ex_WB || interrupt_taken));
-   assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
+//   assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
+   assign new_ex_DX = ebreak || ecall || illegal_instruction;
    assign ex_DX = had_ex_DX || new_ex_DX; // TODO: add causes
    assign killed_DX = prev_killed_DX || kill_DX;
 
@@ -176,8 +177,8 @@ module vscale_ctrl
          ex_code_DX = `ECODE_INST_ADDR_MISALIGNED;
       end else if (illegal_instruction) begin
          ex_code_DX = `ECODE_ILLEGAL_INST;
-      end else if (illegal_csr_access) begin
-         ex_code_DX = `ECODE_ILLEGAL_INST;
+//      end else if (illegal_csr_access) begin
+//         ex_code_DX = `ECODE_ILLEGAL_INST;
       end else if (ebreak) begin
          ex_code_DX = `ECODE_BREAKPOINT;
       end else if (ecall) begin
