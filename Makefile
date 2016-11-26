@@ -14,6 +14,17 @@ MEM_DIR = src/test/inputs
 
 OUT_DIR = output
 
+MODELSIM_DIR = work
+
+VLOG = vlog.exe
+VLOG_OPTS = +incdir+$(V_SRC_DIR)
+VLIB = vlib.exe
+VSIM = vsim.exe
+VSIM_OPTS = -c work.vscale_hex_tb -lib work -do " \
+	add wave -noupdate /vscale_hex_tb/* -recursive; \
+	add wave -noupdate /vscale_hex_tb/DUT/vscale/pipeline/regfile/data; \
+	run 100us; quit"
+
 VERILATOR = verilator
 
 VERILATOR_OPTS = \
@@ -68,6 +79,8 @@ VERILATOR_CPP_TB = $(CXX_TEST_DIR)/vscale_hex_tb.cpp
 
 VERILATOR_TOP = $(V_TEST_DIR)/vscale_verilator_top.v
 
+MODELSIM_TOP = $(V_TEST_DIR)/vscale_hex_tb_modelsim.v
+
 HDRS = $(addprefix $(V_SRC_DIR)/, \
 vscale_ctrl_constants.vh \
 rv32_opcodes.vh \
@@ -81,6 +94,8 @@ TEST_VPD_FILES = $(addprefix $(OUT_DIR)/,$(addsuffix .vpd,$(RV32_TESTS)))
 
 VERILATOR_VCD_FILES = $(addprefix $(OUT_DIR)/,$(addsuffix .verilator.vcd,$(RV32_TESTS)))
 
+MODELSIM_WLF_FILES = $(addprefix $(OUT_DIR)/,$(addsuffix .wlf,$(RV32_TESTS)))
+
 default: $(SIM_DIR)/simv
 
 run-asm-tests: $(TEST_VPD_FILES)
@@ -89,6 +104,10 @@ verilator-sim: $(SIM_DIR)/Vvscale_verilator_top
 
 verilator-run-asm-tests: $(VERILATOR_VCD_FILES)
 
+modelsim-sim: $(MODELSIM_DIR) $(MODELSIM_DIR)/_vmake
+
+modelsim-run-asm-tests: $(MODELSIM_WLF_FILES)
+
 $(OUT_DIR)/%.vpd: $(MEM_DIR)/%.hex $(SIM_DIR)/simv
 	mkdir -p output
 	$(SIM_DIR)/simv $(SIMV_OPTS) +max-cycles=$(MAX_CYCLES) +loadmem=$< +vpdfile=$@ && [ $$PIPESTATUS -eq 0 ]
@@ -96,6 +115,13 @@ $(OUT_DIR)/%.vpd: $(MEM_DIR)/%.hex $(SIM_DIR)/simv
 $(OUT_DIR)/%.verilator.vcd: $(MEM_DIR)/%.hex $(SIM_DIR)/Vvscale_verilator_top
 	mkdir -p output
 	$(SIM_DIR)/Vvscale_verilator_top +max-cycles=$(MAX_CYCLES) +loadmem=$< --vcdfile=$@ && [ $$PIPESTATUS -eq 0 ]
+
+$(OUT_DIR)/%.wlf: $(MEM_DIR)/%.hex $(MODELSIM_DIR)/_vmake
+	mkdir -p output
+	cp $< loadmem.hex
+	$(VSIM) $(VSIM_OPTS)
+	mv transcript $@.log
+	mv vsim.wlf $@
 
 $(SIM_DIR)/simv: $(VCS_TOP) $(SIM_SRCS) $(DESIGN_SRCS) $(HDRS)
 	mkdir -p sim
@@ -106,7 +132,13 @@ $(SIM_DIR)/Vvscale_verilator_top: $(VERILATOR_TOP) $(SIM_SRCS) $(DESIGN_SRCS) $(
 	cd sim; make $(VERILATOR_MAKE_OPTS) -f Vvscale_verilator_top.mk Vvscale_verilator_top__ALL.a
 	cd sim; make $(VERILATOR_MAKE_OPTS) -f Vvscale_verilator_top.mk Vvscale_verilator_top
 
+$(MODELSIM_DIR):
+	$(VLIB) $(MODELSIM_DIR)
+
+$(MODELSIM_DIR)/_vmake: $(MODELSIM_TOP) $(SIM_SRCS) $(DESIGN_SRCES) $(MODELSIM_DIR)
+	$(VLOG) $(VLOG_OPTS) $(MODELSIM_TOP) $(SIM_SRCS) $(DESIGN_SRCS)
+
 clean:
-	rm -rf $(SIM_DIR)/* $(OUT_DIR)/*
+	rm -rf $(SIM_DIR)/* $(OUT_DIR)/* $(MODELSIM_DIR)
 
 .PHONY: clean run-asm-tests verilator-run-asm-tests
