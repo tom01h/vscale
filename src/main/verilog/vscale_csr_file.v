@@ -66,7 +66,8 @@ module vscale_csr_file
    wire [`XPR_LEN-1:0]          mimpid;
    wire [`XPR_LEN-1:0]          mhartid;
    wire [`XPR_LEN-1:0]          mstatus;
-   wire [`XPR_LEN-1:0]          mtdeleg;
+   reg [`XPR_LEN-1:0]           medeleg;
+   reg [`XPR_LEN-1:0]           mideleg;
    wire [`XPR_LEN-1:0]          mip;
    wire [`XPR_LEN-1:0]          mcause;
 
@@ -185,8 +186,6 @@ module vscale_csr_file
    // this implementation has SD, VM, MPRV, XS, and FS set to 0
    assign mstatus = {26'b0, priv_stack};
 
-   assign mtdeleg = 0;
-
    assign mtimer_expired = (mtimecmp == mtime_full[0+:`XPR_LEN]);
 
    always @(posedge clk) begin
@@ -274,7 +273,8 @@ module vscale_csr_file
         `CSR_ADDR_MHARTID   : begin rdata = mhartid; defined = 1'b1; end
         `CSR_ADDR_MSTATUS   : begin rdata = mstatus; defined = 1'b1; end
         `CSR_ADDR_MTVEC     : begin rdata = mtvec; defined = 1'b1; end
-        `CSR_ADDR_MTDELEG   : begin rdata = mtdeleg; defined = 1'b1; end
+        `CSR_ADDR_MEDELEG   : begin rdata = medeleg; defined = 1'b1; end
+        `CSR_ADDR_MIDELEG   : begin rdata = mideleg; defined = 1'b1; end
         `CSR_ADDR_MIE       : begin rdata = mie; defined = 1'b1; end
         `CSR_ADDR_MTIMECMP  : begin rdata = mtimecmp; defined = 1'b1; end
         `CSR_ADDR_MTIME     : begin rdata = mtime_full[0+:`XPR_LEN]; defined = 1'b1; end
@@ -328,7 +328,8 @@ module vscale_csr_file
               // mhartid is read-only
               // mstatus handled separately
               `CSR_ADDR_MTVEC     : mtvec <= wdata_internal & {{30{1'b1}},2'b0};
-              // mtdeleg constant
+              `CSR_ADDR_MEDELEG   : begin rdata = medeleg; defined = 1'b1; end
+              `CSR_ADDR_MIDELEG   : begin rdata = mideleg; defined = 1'b1; end
               // mie handled separately
               `CSR_ADDR_MTIMECMP  : mtimecmp <= wdata_internal;
               `CSR_ADDR_MTIME     : mtime_full[0+:`XPR_LEN] <= wdata_internal;

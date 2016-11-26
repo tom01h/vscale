@@ -23,7 +23,7 @@ VSIM = vsim.exe
 VSIM_OPTS = -c work.vscale_hex_tb -lib work -do " \
 	add wave -noupdate /vscale_hex_tb/* -recursive; \
 	add wave -noupdate /vscale_hex_tb/DUT/vscale/pipeline/regfile/data; \
-	run 100us; quit"
+	run 30ns; quit"
 
 VERILATOR = verilator
 
@@ -79,7 +79,7 @@ VERILATOR_CPP_TB = $(CXX_TEST_DIR)/vscale_hex_tb.cpp
 
 VERILATOR_TOP = $(V_TEST_DIR)/vscale_verilator_top.v
 
-MODELSIM_TOP = $(V_TEST_DIR)/vscale_hex_tb_modelsim.v
+MODELSIM_TOP = $(V_TEST_DIR)/vscale_hex_tb_modelsim.sv
 
 HDRS = $(addprefix $(V_SRC_DIR)/, \
 vscale_ctrl_constants.vh \
@@ -116,9 +116,9 @@ $(OUT_DIR)/%.verilator.vcd: $(MEM_DIR)/%.hex $(SIM_DIR)/Vvscale_verilator_top
 	mkdir -p output
 	$(SIM_DIR)/Vvscale_verilator_top +max-cycles=$(MAX_CYCLES) +loadmem=$< --vcdfile=$@ && [ $$PIPESTATUS -eq 0 ]
 
-$(OUT_DIR)/%.wlf: $(MEM_DIR)/%.hex $(MODELSIM_DIR)/_vmake
+$(OUT_DIR)/%.wlf: $(MEM_DIR)/%.ihex $(MODELSIM_DIR)/_vmake
 	mkdir -p output
-	cp $< loadmem.hex
+	cp $< loadmem.ihex
 	$(VSIM) $(VSIM_OPTS)
 	mv transcript $@.log
 	mv vsim.wlf $@

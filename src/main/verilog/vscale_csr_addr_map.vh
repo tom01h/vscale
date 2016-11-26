@@ -11,9 +11,10 @@
 `define CSR_ADDR_MIMPID    12'hF01
 `define CSR_ADDR_MHARTID   12'hF10
 `define CSR_ADDR_MSTATUS   12'h300
-`define CSR_ADDR_MTVEC     12'h301
-`define CSR_ADDR_MTDELEG   12'h302
+`define CSR_ADDR_MEDELEG   12'h302
+`define CSR_ADDR_MIDELEG   12'h303
 `define CSR_ADDR_MIE       12'h304
+`define CSR_ADDR_MTVEC     12'h305
 `define CSR_ADDR_MTIMECMP  12'h321
 `define CSR_ADDR_MTIME     12'h701
 `define CSR_ADDR_MTIMEH    12'h741

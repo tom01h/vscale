@@ -304,7 +304,7 @@ module vscale_ctrl
                    case (funct12)
                      `RV32_FUNCT12_ECALL : ecall = 1'b1;
                      `RV32_FUNCT12_EBREAK : ebreak = 1'b1;
-                     `RV32_FUNCT12_ERET : begin
+                     `RV32_FUNCT12_MRET : begin
                         if (prv == 0)
                           illegal_instruction = 1'b1;
                         else

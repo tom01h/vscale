@@ -8,8 +8,8 @@ module vscale_hex_tb();
    reg clk;
    reg reset;
 
-   wire htif_pcr_resp_valid;
-   wire [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data;
+   reg htif_pcr_resp_valid;
+   reg [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data;
 
    reg [255:0]                reason = 0;
    reg [1023:0]               loadmem = 0;
@@ -23,12 +23,12 @@ module vscale_hex_tb();
    vscale_sim_top DUT(
                       .clk(clk),
                       .reset(reset),
-                      .htif_pcr_req_valid(1'b1),
+                      .htif_pcr_req_valid(1'b0),
                       .htif_pcr_req_ready(),
                       .htif_pcr_req_rw(1'b0),
                       .htif_pcr_req_addr(`CSR_ADDR_TO_HOST),
                       .htif_pcr_req_data(`HTIF_PCR_WIDTH'b0),
-                      .htif_pcr_resp_valid(htif_pcr_resp_valid),
+                      .htif_pcr_resp_valid(),
                       .htif_pcr_resp_ready(1'b1),
                       .htif_pcr_resp_data(htif_pcr_resp_data)
                       );
@@ -40,26 +40,44 @@ module vscale_hex_tb();
 
    always #5 clk = !clk;
 
-   integer i = 0;
-   integer j = 0;
+   int            fd, i;
+   string         str, data;
+   int            bytec, rtype;
+   logic [15:0]   addr;
+   logic [31:0]   op;
 
    initial begin
-//      $value$plusargs("max-cycles=%d", max_cycles);
-//      $value$plusargs("loadmem=%s", loadmem);
-//      $value$plusargs("vpdfile=%s", vpdfile);
-      if ("loadmem.hex") begin
-         $readmemh("loadmem.hex", hexfile);
-         for (i = 0; i < hexfile_words; i = i + 1) begin
-            for (j = 0; j < 4; j = j + 1) begin
-               DUT.hasti_mem.mem[4*i+j] = hexfile[i][32*j+:32];
+      fd = $fopen("loadmem.ihex","r");
+      if(fd==0) begin
+         $display("ERROR!! loadmem.ihex not found");
+         $stop;
+      end
+      $display("Loading Program");
+      while($fgets(str, fd)) begin
+         void'($sscanf(str, ":%02h%04h%02h%s", bytec, addr, rtype, data));
+         if (rtype==0 &&
+             (bytec == 16 || bytec == 12 || bytec == 8 || bytec == 4)) begin
+            for (i=0; i<bytec/4; i = i+1) begin
+               void'($sscanf(data, "%08h%s", op, str));
+               DUT.hasti_mem.mem[addr/4+i] = {op[7:0],op[15:8],op[23:16],op[31:24]};
+               data = str;
             end
+         end else if ((rtype==4)|(rtype==5)) begin
+         end else if (rtype==1) begin
+            $display("Running ...");
+         end else begin
+            $display("ERROR!! Not support ihex format");
+            $display(str);
+            $stop;
          end
       end
-//      $vcdplusfile(vpdfile);
-//      $vcdpluson();
-      // $vcdplusmemon();
       #100 reset = 0;
-   end // initial begin
+   end
+
+   always @(posedge clk)
+     htif_pcr_resp_valid <= DUT.vscale.dmem_en & (DUT.vscale.dmem_addr == 32'h00001000)& DUT.vscale.dmem_wen;
+   always @ (DUT.vscale.dmem_wdata_delayed)
+     htif_pcr_resp_data = DUT.vscale.dmem_wdata_delayed;
 
    always @(posedge clk) begin
       trace_count = trace_count + 1;
@@ -70,11 +88,9 @@ module vscale_hex_tb();
       if (!reset) begin
          if (htif_pcr_resp_valid && htif_pcr_resp_data != 0) begin
             if (htif_pcr_resp_data == 1) begin
-//               $vcdplusclose;
-               $display("%0t - Simulation finished without errors!", $time);
+               $display("*** PASSED *** after %d simulation cycles", trace_count);
                $finish;
             end else begin
-//               $vcdplusclose;
                $sformat(reason, "tohost = %d", htif_pcr_resp_data >> 1);
             end
          end
@@ -82,8 +98,7 @@ module vscale_hex_tb();
 
 
       if (reason) begin
-         $fdisplay(stderr, "*** FAILED *** (%s) after %d simulation cycles", reason, trace_count);
-//         $vcdplusclose;
+         $display("*** FAILED *** (%s) after %d simulation cycles", reason, trace_count);
          $finish;
       end
    end
