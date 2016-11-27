@@ -328,8 +328,8 @@ module vscale_csr_file
               // mhartid is read-only
               // mstatus handled separately
               `CSR_ADDR_MTVEC     : mtvec <= wdata_internal & {{30{1'b1}},2'b0};
-              `CSR_ADDR_MEDELEG   : begin rdata = medeleg; defined = 1'b1; end
-              `CSR_ADDR_MIDELEG   : begin rdata = mideleg; defined = 1'b1; end
+              `CSR_ADDR_MEDELEG   : medeleg <= wdata_internal;
+              `CSR_ADDR_MIDELEG   : mideleg <= wdata_internal;
               // mie handled separately
               `CSR_ADDR_MTIMECMP  : mtimecmp <= wdata_internal;
               `CSR_ADDR_MTIME     : mtime_full[0+:`XPR_LEN] <= wdata_internal;
