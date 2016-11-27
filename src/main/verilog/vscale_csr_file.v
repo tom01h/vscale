@@ -8,6 +8,7 @@ module vscale_csr_file
    input                        clk,
    input [`N_EXT_INTS-1:0]      ext_interrupts, 
    input                        reset,
+   input                        req,
    input [`CSR_ADDR_WIDTH-1:0]  addr,
    input [`CSR_CMD_WIDTH-1:0]   cmd,
    input [`XPR_LEN-1:0]         wdata,
@@ -49,6 +50,7 @@ module vscale_csr_file
    reg [`CSR_COUNTER_WIDTH-1:0] instret_full;
    reg [5:0]                    priv_stack;
    reg [`XPR_LEN-1:0]           mtvec;
+   reg [`XPR_LEN-1:0]           stvec;
    reg [`XPR_LEN-1:0]           mie;
    reg                          mtip;
    reg                          msip;
@@ -62,10 +64,13 @@ module vscale_csr_file
 
    wire                         ie;
 
-   wire [`XPR_LEN-1:0]          mcpuid;
-   wire [`XPR_LEN-1:0]          mimpid;
-   wire [`XPR_LEN-1:0]          mhartid;
+   wire [`XPR_LEN-1:0]          mvendorid = 32'h00000000;
+   wire [`XPR_LEN-1:0]          marchid   = 32'h00000000;
+   wire [`XPR_LEN-1:0]          mimpid    = 32'h00008000;
+   wire [`XPR_LEN-1:0]          mhartid   = 32'h00000000;
+
    wire [`XPR_LEN-1:0]          mstatus;
+   wire [`XPR_LEN-1:0]          misa      = 32'h40101100;
    reg [`XPR_LEN-1:0]           medeleg;
    reg [`XPR_LEN-1:0]           mideleg;
    wire [`XPR_LEN-1:0]          mip;
@@ -97,14 +102,14 @@ module vscale_csr_file
    assign ie = priv_stack[0];
 
    assign host_wen = (htif_state == HTIF_STATE_IDLE) && htif_pcr_req_valid && htif_pcr_req_rw;
-   assign system_en = cmd[2];
-   assign system_wen = cmd[1] || cmd[0];
+   assign system_en = req & cmd[2];
+   assign system_wen = req & (cmd[1] || cmd[0]);
    assign wen_internal = host_wen || system_wen;
 
-   assign illegal_region = (system_wen && (addr[11:10] == 2'b11))
-     || (system_en && addr[9:8] > prv);
+   assign illegal_region = ((cmd[1] || cmd[0]) && (addr[11:10] == 2'b11))
+     || (cmd[2] && addr[9:8] > prv);
 
-   assign illegal_access = illegal_region || (system_en && !defined);
+   assign illegal_access = illegal_region || (cmd[2] && !defined);
 
    always @(*) begin
       if (host_wen) begin
@@ -163,10 +168,6 @@ module vscale_csr_file
    assign htif_pcr_req_ready = (htif_state == HTIF_STATE_IDLE);
    assign htif_pcr_resp_valid = (htif_state == HTIF_STATE_WAIT);
    assign htif_pcr_resp_data = htif_resp_data;
-
-   assign mcpuid = (1 << 20) | (1 << 8); // 'I' and 'U' bits set
-   assign mimpid = 32'h8000;
-   assign mhartid = 0;
 
    always @(posedge clk) begin
       if (reset) begin
@@ -268,11 +269,14 @@ module vscale_csr_file
         `CSR_ADDR_CYCLEH    : begin rdata = cycle_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_TIMEH     : begin rdata = time_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_INSTRETH  : begin rdata = instret_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
-        `CSR_ADDR_MCPUID    : begin rdata = mcpuid; defined = 1'b1; end
+        `CSR_ADDR_MVENDORID : begin rdata = mvendorid; defined = 1'b1; end
+        `CSR_ADDR_MARCHID   : begin rdata = marchid; defined = 1'b1; end
         `CSR_ADDR_MIMPID    : begin rdata = mimpid; defined = 1'b1; end
         `CSR_ADDR_MHARTID   : begin rdata = mhartid; defined = 1'b1; end
         `CSR_ADDR_MSTATUS   : begin rdata = mstatus; defined = 1'b1; end
+        `CSR_ADDR_MISA      : begin rdata = misa; defined = 1'b1; end
         `CSR_ADDR_MTVEC     : begin rdata = mtvec; defined = 1'b1; end
+        `CSR_ADDR_STVEC     : begin rdata = stvec; defined = 1'b1; end
         `CSR_ADDR_MEDELEG   : begin rdata = medeleg; defined = 1'b1; end
         `CSR_ADDR_MIDELEG   : begin rdata = mideleg; defined = 1'b1; end
         `CSR_ADDR_MIE       : begin rdata = mie; defined = 1'b1; end
@@ -307,6 +311,7 @@ module vscale_csr_file
          to_host <= 0;
          from_host <= 0;
          mtvec <= 'h100;
+         stvec <= 'h100;
          mtimecmp <= 0;
          mscratch <= 0;
       end else begin
@@ -323,11 +328,14 @@ module vscale_csr_file
               `CSR_ADDR_CYCLEH    : cycle_full[`XPR_LEN+:`XPR_LEN] <= wdata_internal;
               `CSR_ADDR_TIMEH     : time_full[`XPR_LEN+:`XPR_LEN] <= wdata_internal;
               `CSR_ADDR_INSTRETH  : instret_full[`XPR_LEN+:`XPR_LEN] <= wdata_internal;
-              // mcpuid is read-only
+              // mvendorid is read-only
+              // marchid is read-only
               // mimpid is read-only
               // mhartid is read-only
               // mstatus handled separately
+              // misa is read-only
               `CSR_ADDR_MTVEC     : mtvec <= wdata_internal & {{30{1'b1}},2'b0};
+              `CSR_ADDR_STVEC     : stvec <= wdata_internal & {{30{1'b1}},2'b0};
               `CSR_ADDR_MEDELEG   : medeleg <= wdata_internal;
               `CSR_ADDR_MIDELEG   : mideleg <= wdata_internal;
               // mie handled separately

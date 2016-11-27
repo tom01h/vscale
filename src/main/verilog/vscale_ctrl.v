@@ -34,7 +34,8 @@ module vscale_ctrl
    output reg [`MD_OUT_SEL_WIDTH-1:0] md_req_out_sel,
    input                              md_resp_valid,
    output wire                        eret,
-   output [`CSR_CMD_WIDTH-1:0]        csr_cmd,
+   output                             csr_req,
+   output reg [`CSR_CMD_WIDTH-1:0]    csr_cmd,
    output reg                         csr_imm_sel,
    input                              illegal_csr_access,
    input                              interrupt_pending,
@@ -99,7 +100,6 @@ module vscale_ctrl
    wire                               uses_md;
    reg                                wfi_unkilled_DX;
    wire                               wfi_DX;
-   reg [`CSR_CMD_WIDTH-1:0]           csr_cmd_unkilled;
    
    // WB stage ctrl pipeline registers
    reg                                wr_reg_unkilled_WB;
@@ -166,8 +166,7 @@ module vscale_ctrl
                         (fence_i && store_in_WB) ||
                         (uses_md_unkilled && !md_req_ready)
                         ) && !(ex_DX || ex_WB || interrupt_taken));
-//   assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
-   assign new_ex_DX = ebreak || ecall || illegal_instruction;
+   assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
    assign ex_DX = had_ex_DX || new_ex_DX; // TODO: add causes
    assign killed_DX = prev_killed_DX || kill_DX;
 
@@ -177,8 +176,8 @@ module vscale_ctrl
          ex_code_DX = `ECODE_INST_ADDR_MISALIGNED;
       end else if (illegal_instruction) begin
          ex_code_DX = `ECODE_ILLEGAL_INST;
-//      end else if (illegal_csr_access) begin
-//         ex_code_DX = `ECODE_ILLEGAL_INST;
+      end else if (illegal_csr_access) begin
+         ex_code_DX = `ECODE_ILLEGAL_INST;
       end else if (ebreak) begin
          ex_code_DX = `ECODE_BREAKPOINT;
       end else if (ecall) begin
@@ -203,7 +202,7 @@ module vscale_ctrl
 
    always @(*) begin
       illegal_instruction = 1'b0;
-      csr_cmd_unkilled = `CSR_IDLE;
+      csr_cmd = `CSR_IDLE;
       csr_imm_sel = funct3[2];
       ecall = 1'b0;
       ebreak = 1'b0;
@@ -315,12 +314,12 @@ module vscale_ctrl
                    endcase // case (funct12)
                 end // if ((rs1_addr == 0) && (reg_to_wr_DX == 0))
              end // case: `RV32_FUNCT3_PRIV
-             `RV32_FUNCT3_CSRRW : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
-             `RV32_FUNCT3_CSRRS : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
-             `RV32_FUNCT3_CSRRC : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
-             `RV32_FUNCT3_CSRRWI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
-             `RV32_FUNCT3_CSRRSI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
-             `RV32_FUNCT3_CSRRCI : csr_cmd_unkilled = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
+             `RV32_FUNCT3_CSRRW : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
+             `RV32_FUNCT3_CSRRS : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
+             `RV32_FUNCT3_CSRRC : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
+             `RV32_FUNCT3_CSRRWI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
+             `RV32_FUNCT3_CSRRSI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
+             `RV32_FUNCT3_CSRRCI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
              default : illegal_instruction = 1'b1;
            endcase // case (funct3)
         end
@@ -411,7 +410,7 @@ module vscale_ctrl
    assign wr_reg_DX = wr_reg_unkilled_DX && !kill_DX;
    assign uses_md = uses_md_unkilled && !kill_DX;
    assign wfi_DX = wfi_unkilled_DX && !kill_DX;
-   assign csr_cmd = (kill_DX) ? `CSR_IDLE : csr_cmd_unkilled;
+   assign csr_req = (kill_DX) ? 1'b0 : |(csr_cmd);
    assign redirect = branch_taken || jal || jalr || eret;
 
    always @(*) begin

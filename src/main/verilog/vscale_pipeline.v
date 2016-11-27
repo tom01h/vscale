@@ -126,6 +126,7 @@ module vscale_pipeline
    reg [`MEM_TYPE_WIDTH-1:0]                    dmem_type_WB;
 
    // CSR management
+   wire                                         csr_req;
    wire [`CSR_ADDR_WIDTH-1:0]                   csr_addr;
    wire [`CSR_CMD_WIDTH-1:0]                    csr_cmd;
    wire                                         csr_imm_sel;
@@ -181,6 +182,7 @@ module vscale_pipeline
                     .exception_WB(exception_WB),
                     .exception_code_WB(exception_code_WB),
                     .retire_WB(retire_WB),
+                    .csr_req(csr_req),
                     .csr_cmd(csr_cmd),
                     .csr_imm_sel(csr_imm_sel),
                     .illegal_csr_access(illegal_csr_access),
@@ -341,6 +343,7 @@ module vscale_pipeline
                        .clk(clk),
                        .ext_interrupts(ext_interrupts),
                        .reset(reset),
+                       .req(csr_req),
                        .addr(csr_addr),
                        .cmd(csr_cmd),
                        .wdata(csr_wdata),
