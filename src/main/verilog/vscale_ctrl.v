@@ -283,6 +283,8 @@ module vscale_ctrl
         `RV32_OP_IMM : begin
            alu_op = alu_op_arith;
            wr_reg_unkilled_DX = 1'b1;
+           if(inst_DX[25]&((funct3==`RV32_FUNCT3_SLL)|(funct3==`RV32_FUNCT3_SRA_SRL))) // shamt[5] != 0
+             illegal_instruction = 1'b1;
         end
         `RV32_OP  : begin
            uses_rs2 = 1'b1;
