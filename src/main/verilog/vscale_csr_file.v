@@ -12,13 +12,13 @@ module vscale_csr_file
    input [`CSR_ADDR_WIDTH-1:0]  addr,
    input [`CSR_CMD_WIDTH-1:0]   cmd,
    input [`XPR_LEN-1:0]         wdata,
-   output wire [`PRV_WIDTH-1:0] prv,
+   output reg [`PRV_WIDTH-1:0]  prv,
    output                       illegal_access,
    output reg [`XPR_LEN-1:0]    rdata,
    input                        retire,
    input                        exception,
    input [`ECODE_WIDTH-1:0]     exception_code,
-   input                        eret,
+   input                        mret,
    input [`XPR_LEN-1:0]         exception_load_addr,
    input [`XPR_LEN-1:0]         exception_PC,
    output [`XPR_LEN-1:0]        handler_PC,
@@ -48,9 +48,11 @@ module vscale_csr_file
    reg [`CSR_COUNTER_WIDTH-1:0] cycle_full;
    reg [`CSR_COUNTER_WIDTH-1:0] time_full;
    reg [`CSR_COUNTER_WIDTH-1:0] instret_full;
-   reg [5:0]                    priv_stack;
+   reg [1:0]                    ms_mpp;
+   reg                          ms_mpie, ms_upie, ms_mie, ms_uie;
    reg [`XPR_LEN-1:0]           mtvec;
-   reg [`XPR_LEN-1:0]           stvec;
+   wire [`XPR_LEN-1:0]          stvec = 32'h0; //TEMP//TEMP//rv32mi-p-csr
+   reg [`XPR_LEN-1:0]           utvec; //TEMP//TEMP//
    reg [`XPR_LEN-1:0]           mie;
    reg                          mtip;
    reg                          msip;
@@ -61,8 +63,6 @@ module vscale_csr_file
    reg [`ECODE_WIDTH-1:0]       mecode;
    reg                          mint;
    reg [`XPR_LEN-1:0]           mbadaddr;
-
-   wire                         ie;
 
    wire [`XPR_LEN-1:0]          mvendorid = 32'h00000000;
    wire [`XPR_LEN-1:0]          marchid   = 32'h00000000;
@@ -95,11 +95,7 @@ module vscale_csr_file
    wire                         code_imem;
 
 
-   wire [`XPR_LEN-1:0]          padded_prv = prv;
-   assign handler_PC = mtvec + (padded_prv << 5);
-
-   assign prv = priv_stack[2:1];
-   assign ie = priv_stack[0];
+   assign handler_PC = mtvec;
 
    assign host_wen = (htif_state == HTIF_STATE_IDLE) && htif_pcr_req_valid && htif_pcr_req_rw;
    assign system_en = req & cmd[2];
@@ -126,14 +122,14 @@ module vscale_csr_file
    end // always @ begin
 
    assign uinterrupt = 1'b0;
-   assign minterrupt = |(mie & mip);
+   assign minterrupt = ms_mie & (|(mie & mip));
    assign interrupt_pending = |mip;
 
    always @(*) begin
       interrupt_code = `ICODE_TIMER;
       case (prv)
-        `PRV_U : interrupt_taken = (ie && uinterrupt) || minterrupt;
-        `PRV_M : interrupt_taken = (ie && minterrupt);
+        `PRV_U : interrupt_taken = (ms_uie && uinterrupt) || minterrupt;
+        `PRV_M : interrupt_taken = (ms_uie && minterrupt);
         default : interrupt_taken = 1'b1;
       endcase // case (prv)
    end
@@ -171,21 +167,44 @@ module vscale_csr_file
 
    always @(posedge clk) begin
       if (reset) begin
-         priv_stack <= 6'b000110;
+         ms_mpp[1:0] <= 2'b00;
+         ms_mpie <= 1'b0;
+         ms_upie <= 1'b0;
+         ms_mie <= 1'b0;
+         ms_uie <= 1'b0;
+         prv <= 2'b11;
       end else if (wen_internal && addr == `CSR_ADDR_MSTATUS) begin
-         priv_stack <= wdata_internal[5:0];
+         ms_mpp[1:0] <= wdata_internal[12:11];
+         ms_mpie <= wdata_internal[7];
+         ms_upie <= wdata_internal[4];
+         ms_mie <= wdata_internal[3];
+         ms_uie <= wdata_internal[0];
       end else if (exception) begin
          // no delegation to U means all exceptions go to M
-         priv_stack <= {priv_stack[2:0],2'b11,1'b0};
-      end else if (eret) begin
-         priv_stack <= {2'b00,1'b1,priv_stack[5:3]};
+         ms_mpp[1:0] <= prv[1:0];
+         if(prv[1:0] == 2'b11) begin
+            ms_mpie <= ms_mie;
+         end else begin
+            ms_mpie <= ms_uie;
+         end
+         ms_mie <= 1'b0;
+         prv <= 2'b11;
+      end else if (mret) begin
+         ms_mpp[1:0] <= 2'b00;
+         prv <= ms_mpp[1:0];
+         ms_mpie <= 1'b1;
+         if(ms_mpp[1:0] == 2'b11) begin
+            ms_mie <= ms_mpie;
+         end else begin
+            ms_uie <= ms_mpie;
+         end
       end
    end // always @ (posedge clk)
 
    assign epc = mepc;
 
    // this implementation has SD, VM, MPRV, XS, and FS set to 0
-   assign mstatus = {26'b0, priv_stack};
+   assign mstatus = {19'b0, ms_mpp[1:0], 3'b000, ms_mpie, 2'b00, ms_upie, ms_mie, 2'b00, ms_uie};
 
    assign mtimer_expired = (mtimecmp == mtime_full[0+:`XPR_LEN]);
 
@@ -263,9 +282,10 @@ module vscale_csr_file
 
    always @(*) begin
       case (addr)
-        `CSR_ADDR_CYCLE     : begin rdata = cycle_full[0+:`XPR_LEN]; defined = 1'b1; end
-        `CSR_ADDR_TIME      : begin rdata = time_full[0+:`XPR_LEN]; defined = 1'b1; end
-        `CSR_ADDR_INSTRET   : begin rdata = instret_full[0+:`XPR_LEN]; defined = 1'b1; end
+// read by RDCYCLE/RCTIME/RCINSTRES instructon
+//        `CSR_ADDR_CYCLE     : begin rdata = cycle_full[0+:`XPR_LEN]; defined = 1'b1; end
+//        `CSR_ADDR_TIME      : begin rdata = time_full[0+:`XPR_LEN]; defined = 1'b1; end
+//        `CSR_ADDR_INSTRET   : begin rdata = instret_full[0+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_CYCLEH    : begin rdata = cycle_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_TIMEH     : begin rdata = time_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_INSTRETH  : begin rdata = instret_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
@@ -288,9 +308,10 @@ module vscale_csr_file
         `CSR_ADDR_MCAUSE    : begin rdata = mcause; defined = 1'b1; end
         `CSR_ADDR_MBADADDR  : begin rdata = mbadaddr; defined = 1'b1; end
         `CSR_ADDR_MIP       : begin rdata = mip; defined = 1'b1; end
-        `CSR_ADDR_CYCLEW    : begin rdata = cycle_full[0+:`XPR_LEN]; defined = 1'b1; end
-        `CSR_ADDR_TIMEW     : begin rdata = time_full[0+:`XPR_LEN]; defined = 1'b1; end
-        `CSR_ADDR_INSTRETW  : begin rdata = instret_full[0+:`XPR_LEN]; defined = 1'b1; end
+// read by RDCYCLE/RCTIME/RCINSTRES instructon
+//        `CSR_ADDR_CYCLEW    : begin rdata = cycle_full[0+:`XPR_LEN]; defined = 1'b1; end
+//        `CSR_ADDR_TIMEW     : begin rdata = time_full[0+:`XPR_LEN]; defined = 1'b1; end
+//        `CSR_ADDR_INSTRETW  : begin rdata = instret_full[0+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_CYCLEHW   : begin rdata = cycle_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_TIMEHW    : begin rdata = time_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_INSTRETHW : begin rdata = instret_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
@@ -311,7 +332,6 @@ module vscale_csr_file
          to_host <= 0;
          from_host <= 0;
          mtvec <= 'h100;
-         stvec <= 'h100;
          mtimecmp <= 0;
          mscratch <= 0;
       end else begin
@@ -335,7 +355,7 @@ module vscale_csr_file
               // mstatus handled separately
               // misa is read-only
               `CSR_ADDR_MTVEC     : mtvec <= wdata_internal & {{30{1'b1}},2'b0};
-              `CSR_ADDR_STVEC     : stvec <= wdata_internal & {{30{1'b1}},2'b0};
+              `CSR_ADDR_STVEC     : ;//TEMP//TEMP//rv32mi-p-csr
               `CSR_ADDR_MEDELEG   : medeleg <= wdata_internal;
               `CSR_ADDR_MIDELEG   : mideleg <= wdata_internal;
               // mie handled separately

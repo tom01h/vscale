@@ -33,7 +33,7 @@ module vscale_ctrl
    output reg [`MD_OP_WIDTH-1:0]      md_req_op,
    output reg [`MD_OUT_SEL_WIDTH-1:0] md_req_out_sel,
    input                              md_resp_valid,
-   output wire                        eret,
+   output wire                        mret,
    output                             csr_req,
    output reg [`CSR_CMD_WIDTH-1:0]    csr_cmd,
    output reg                         csr_imm_sel,
@@ -75,7 +75,7 @@ module vscale_ctrl
    reg                                illegal_instruction;
    reg                                ebreak;
    reg                                ecall;
-   reg                                eret_unkilled;
+   reg                                mret_unkilled;
    reg                                fence_i;
    wire [`ALU_OP_WIDTH-1:0]           add_or_sub;
    wire [`ALU_OP_WIDTH-1:0]           srl_or_sra;
@@ -206,7 +206,7 @@ module vscale_ctrl
       csr_imm_sel = funct3[2];
       ecall = 1'b0;
       ebreak = 1'b0;
-      eret_unkilled = 1'b0;
+      mret_unkilled = 1'b0;
       fence_i = 1'b0;
       branch_taken_unkilled = 1'b0;
       jal_unkilled = 1'b0;
@@ -307,7 +307,7 @@ module vscale_ctrl
                         if (prv == 0)
                           illegal_instruction = 1'b1;
                         else
-                          eret_unkilled = 1'b1;
+                          mret_unkilled = 1'b1;
                      end
                      `RV32_FUNCT12_WFI : wfi_unkilled_DX = 1'b1;
                      default : illegal_instruction = 1'b1;
@@ -404,21 +404,21 @@ module vscale_ctrl
    assign branch_taken = branch_taken_unkilled && !kill_DX;
    assign jal = jal_unkilled && !kill_DX;
    assign jalr = jalr_unkilled && !kill_DX;
-   assign eret = eret_unkilled && !kill_DX;
+   assign mret = mret_unkilled && !kill_DX;
    assign dmem_en = dmem_en_unkilled && !kill_DX;
    assign dmem_wen = dmem_wen_unkilled && !kill_DX;
    assign wr_reg_DX = wr_reg_unkilled_DX && !kill_DX;
    assign uses_md = uses_md_unkilled && !kill_DX;
    assign wfi_DX = wfi_unkilled_DX && !kill_DX;
    assign csr_req = (kill_DX) ? 1'b0 : |(csr_cmd);
-   assign redirect = branch_taken || jal || jalr || eret;
+   assign redirect = branch_taken || jal || jalr || mret;
 
    always @(*) begin
       if (exception || interrupt_taken) begin
          PC_src_sel = `PC_HANDLER;
       end else if (replay_IF || (stall_IF && !imem_wait)) begin
          PC_src_sel = `PC_REPLAY;
-      end else if (eret) begin
+      end else if (mret) begin
          PC_src_sel = `PC_EPC;
       end else if (branch_taken) begin
          PC_src_sel = `PC_BRANCH_TARGET;

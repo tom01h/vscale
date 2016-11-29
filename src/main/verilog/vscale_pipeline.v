@@ -140,7 +140,7 @@ module vscale_pipeline
    wire                                         exception_WB;
    wire [`ECODE_WIDTH-1:0]                      exception_code_WB;
    wire [`XPR_LEN-1:0]                          handler_PC;
-   wire                                         eret;
+   wire                                         mret;
    wire [`XPR_LEN-1:0]                          epc;
 
    vscale_ctrl ctrl(
@@ -189,7 +189,7 @@ module vscale_pipeline
                     .interrupt_pending(interrupt_pending),
                     .interrupt_taken(interrupt_taken),
                     .prv(prv),
-                    .eret(eret)
+                    .mret(mret)
                     );
 
 
@@ -356,7 +356,7 @@ module vscale_pipeline
                        .exception_load_addr(alu_out_WB),
                        .exception_PC(PC_WB),
                        .epc(epc),
-                       .eret(eret),
+                       .mret(mret),
                        .handler_PC(handler_PC),
                        .interrupt_pending(interrupt_pending),
                        .interrupt_taken(interrupt_taken),

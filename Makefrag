@@ -47,14 +47,14 @@ RV32_TESTS = \
     rv32ui-p-xor \
     rv32ui-p-xori \
     rv32mi-p-illegal \
-
-TMP_TESTS = \
     rv32mi-p-mcsr \
     rv32mi-p-csr \
+    rv32mi-p-scall \
+    rv32mi-p-sbreak \
+
+TMP_TESTS = \
     rv32mi-p-breakpoint \
     rv32mi-p-ma_addr \
     rv32mi-p-ma_fetch \
-    rv32mi-p-sbreak \
-    rv32mi-p-scall \
     rv32mi-p-shamt \
     rv32mi-p-wfi \
