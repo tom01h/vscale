@@ -60,7 +60,8 @@ module vscale_pipeline
 
    wire [`PC_SRC_SEL_WIDTH-1:0]                 PC_src_sel;
    wire [`XPR_LEN-1:0]                          PC_PIF;
-
+   wire                                         misaligned_fetch;
+   reg                                          misaligned_addr_p;
 
    reg [`XPR_LEN-1:0]                           PC_IF;
 
@@ -176,6 +177,8 @@ module vscale_pipeline
                     .csr_req(csr_req),
                     .csr_cmd(csr_cmd),
                     .csr_imm_sel(csr_imm_sel),
+                    .misaligned_addr_p(misaligned_addr_p),
+                    .misaligned_fetch(misaligned_fetch),
                     .illegal_csr_access(illegal_csr_access),
                     .interrupt_pending(interrupt_pending),
                     .interrupt_taken(interrupt_taken),
@@ -192,7 +195,8 @@ module vscale_pipeline
                        .PC_DX(PC_DX),
                        .handler_PC(handler_PC),
                        .epc(epc),
-                       .PC_PIF(PC_PIF)
+                       .PC_PIF(PC_PIF),
+                       .misaligned_fetch(misaligned_fetch)
                        );
 
    assign imem_addr = PC_PIF;
@@ -281,8 +285,20 @@ module vscale_pipeline
 
    assign cmp_true = alu_out[0];
 
-
    assign dmem_addr = alu_out;
+   always @(*) begin
+      case(dmem_size)
+        `MEM_TYPE_LH,
+        `MEM_TYPE_LHU,
+        `MEM_TYPE_SH : misaligned_addr_p = (dmem_addr[0]);
+        `MEM_TYPE_LW,
+        `MEM_TYPE_LWU,
+        `MEM_TYPE_SW : misaligned_addr_p = |(dmem_addr[1:0]);
+        `MEM_TYPE_LD,
+        `MEM_TYPE_SD : misaligned_addr_p = |(dmem_addr[2:0]);
+        default      : misaligned_addr_p = 1'b0;
+      endcase
+   end
 
    always @(posedge clk) begin
       if (reset) begin

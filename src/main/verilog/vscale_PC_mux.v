@@ -10,7 +10,8 @@ module vscale_PC_mux
    input [`XPR_LEN-1:0]          PC_DX,
    input [`XPR_LEN-1:0]          handler_PC,
    input [`XPR_LEN-1:0]          epc,
-   output [`XPR_LEN-1:0]         PC_PIF
+   output [`XPR_LEN-1:0]         PC_PIF,
+   output                        misaligned_fetch
    );
 
    wire [`XPR_LEN-1:0]           imm_b = { {20{inst_DX[31]}}, inst_DX[7], inst_DX[30:25], inst_DX[11:8], 1'b0 };
@@ -53,8 +54,9 @@ module vscale_PC_mux
       endcase // case (PC_src_sel)
    end // always @ (*)
 
-   assign PC_PIF = base + offset;
-
+   wire [`XPR_LEN-1:0] PC_PIF_p = base + offset;
+   assign misaligned_fetch = |(PC_PIF_p[1:0]);
+   assign PC_PIF = (misaligned_fetch) ? PC_IF : PC_PIF_p;
 
 endmodule // vscale_PC_mux
 

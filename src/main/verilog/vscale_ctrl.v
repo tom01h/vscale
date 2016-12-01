@@ -37,6 +37,8 @@ module vscale_ctrl
    output                             csr_req,
    output reg [`CSR_CMD_WIDTH-1:0]    csr_cmd,
    output reg                         csr_imm_sel,
+   input                              misaligned_addr_p,
+   input                              misaligned_fetch,
    input                              illegal_csr_access,
    input                              interrupt_pending,
    input                              interrupt_taken,
@@ -80,14 +82,11 @@ module vscale_ctrl
    wire [`ALU_OP_WIDTH-1:0]           add_or_sub;
    wire [`ALU_OP_WIDTH-1:0]           srl_or_sra;
    reg [`ALU_OP_WIDTH-1:0]            alu_op_arith;
-   reg                                branch_taken_unkilled;
-   wire                               branch_taken;
+   reg                                branch_taken;
    reg                                dmem_en_unkilled;
    reg                                dmem_wen_unkilled;
-   reg                                jal_unkilled;
-   wire                               jal;
-   reg                                jalr_unkilled;
-   wire                               jalr;
+   reg                                jal;
+   reg                                jalr;
    wire                               redirect;
    reg                                wr_reg_unkilled_DX;
    wire                               wr_reg_DX;
@@ -158,6 +157,7 @@ module vscale_ctrl
 
    // interrupts kill IF, DX instructions -- WB may commit
    // Exceptions never show up falsely due to hazards -- don't get exceptions on stall
+   wire misaligned_addr = misaligned_addr_p & dmem_en_unkilled;
    assign kill_DX = stall_DX || ex_DX || ex_WB || interrupt_taken;
    assign stall_DX = stall_WB ||
                      (( // internal hazards
@@ -166,13 +166,20 @@ module vscale_ctrl
                         (fence_i && store_in_WB) ||
                         (uses_md_unkilled && !md_req_ready)
                         ) && !(ex_DX || ex_WB || interrupt_taken));
-   assign new_ex_DX = ebreak || ecall || illegal_instruction || illegal_csr_access;
+   assign new_ex_DX = ebreak || ecall || misaligned_addr || misaligned_fetch || illegal_instruction || illegal_csr_access;
    assign ex_DX = had_ex_DX || new_ex_DX; // TODO: add causes
    assign killed_DX = prev_killed_DX || kill_DX;
 
    always @(*) begin
-      ex_code_DX = `ECODE_INST_ADDR_MISALIGNED;
+      ex_code_DX = `ECODE_INST_ACCESS_FAULT;
       if (had_ex_DX) begin
+         ex_code_DX = `ECODE_INST_ACCESS_FAULT;
+      end else if (misaligned_addr) begin
+         if(dmem_wen_unkilled)
+           ex_code_DX = `ECODE_STORE_AMO_ADDR_MISALIGNED;
+         else
+           ex_code_DX = `ECODE_LOAD_ADDR_MISALIGNED;
+      end else if (misaligned_fetch) begin
          ex_code_DX = `ECODE_INST_ADDR_MISALIGNED;
       end else if (illegal_instruction) begin
          ex_code_DX = `ECODE_ILLEGAL_INST;
@@ -208,9 +215,9 @@ module vscale_ctrl
       ebreak = 1'b0;
       mret_unkilled = 1'b0;
       fence_i = 1'b0;
-      branch_taken_unkilled = 1'b0;
-      jal_unkilled = 1'b0;
-      jalr_unkilled = 1'b0;
+      branch_taken = 1'b0;
+      jal = 1'b0;
+      jalr = 1'b0;
       uses_rs1 = 1'b1;
       uses_rs2 = 1'b0;
       imm_type = `IMM_I;
@@ -237,7 +244,7 @@ module vscale_ctrl
         end
         `RV32_BRANCH : begin
            uses_rs2 = 1'b1;
-           branch_taken_unkilled = cmp_true;
+           branch_taken = cmp_true;
            src_b_sel = `SRC_B_RS2;
            case (funct3)
              `RV32_FUNCT3_BEQ : alu_op = `ALU_OP_SEQ;
@@ -250,7 +257,7 @@ module vscale_ctrl
            endcase // case (funct3)
         end
         `RV32_JAL : begin
-           jal_unkilled = 1'b1;
+           jal = 1'b1;
            uses_rs1 = 1'b0;
            src_a_sel = `SRC_A_PC;
            src_b_sel = `SRC_B_FOUR;
@@ -258,7 +265,7 @@ module vscale_ctrl
         end
         `RV32_JALR : begin
            illegal_instruction = (funct3 != 0);
-           jalr_unkilled = 1'b1;
+           jalr = 1'b1;
            src_a_sel = `SRC_A_PC;
            src_b_sel = `SRC_B_FOUR;
            wr_reg_unkilled_DX = 1'b1;
@@ -403,9 +410,6 @@ module vscale_ctrl
       endcase // case (funct3)
    end // always @ begin
 
-   assign branch_taken = branch_taken_unkilled && !kill_DX;
-   assign jal = jal_unkilled && !kill_DX;
-   assign jalr = jalr_unkilled && !kill_DX;
    assign mret = mret_unkilled && !kill_DX;
    assign dmem_en = dmem_en_unkilled && !kill_DX;
    assign dmem_wen = dmem_wen_unkilled && !kill_DX;
@@ -413,14 +417,14 @@ module vscale_ctrl
    assign uses_md = uses_md_unkilled && !kill_DX;
    assign wfi_DX = wfi_unkilled_DX && !kill_DX;
    assign csr_req = (kill_DX) ? 1'b0 : |(csr_cmd);
-   assign redirect = branch_taken || jal || jalr || mret;
+   assign redirect = (branch_taken || jal || jalr || mret) && !kill_DX;
 
    always @(*) begin
       if (exception || interrupt_taken) begin
          PC_src_sel = `PC_HANDLER;
       end else if (replay_IF || (stall_IF && !imem_wait)) begin
          PC_src_sel = `PC_REPLAY;
-      end else if (mret) begin
+      end else if (mret_unkilled) begin
          PC_src_sel = `PC_EPC;
       end else if (branch_taken) begin
          PC_src_sel = `PC_BRANCH_TARGET;
@@ -474,8 +478,8 @@ module vscale_ctrl
       if (!had_ex_WB) begin
          if (dmem_access_exception) begin
             ex_code_WB = wr_reg_unkilled_WB ?
-                         `ECODE_LOAD_ADDR_MISALIGNED :
-                         `ECODE_STORE_AMO_ADDR_MISALIGNED;
+                         `ECODE_LOAD_ACCESS_FAULT :
+                         `ECODE_STORE_AMO_ACCESS_FAULT;
          end
       end
    end

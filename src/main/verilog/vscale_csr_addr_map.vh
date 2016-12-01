@@ -42,7 +42,7 @@
 
 `define ECODE_WIDTH                      4
 `define ECODE_INST_ADDR_MISALIGNED       0
-`define ECODE_INST_ADDR_FAULT            1
+`define ECODE_INST_ACCESS_FAULT          1
 `define ECODE_ILLEGAL_INST               2
 `define ECODE_BREAKPOINT                 3
 `define ECODE_LOAD_ADDR_MISALIGNED       4
