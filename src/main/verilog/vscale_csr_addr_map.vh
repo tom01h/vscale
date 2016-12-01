@@ -33,9 +33,6 @@
 `define CSR_ADDR_TIMEHW    12'h981
 `define CSR_ADDR_INSTRETHW 12'h982
 
-`define CSR_ADDR_TO_HOST   12'h780
-`define CSR_ADDR_FROM_HOST 12'h781
-
 `define CSR_CMD_WIDTH 3
 `define CSR_IDLE      0
 `define CSR_READ      4

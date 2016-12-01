@@ -6,6 +6,7 @@
 module vscale_core
   (
    input                           clk,
+   input                           reset,
    input [`N_EXT_INTS-1:0]         ext_interrupts, 
    output [`HASTI_ADDR_WIDTH-1:0]  imem_haddr,
    output                          imem_hwrite,
@@ -28,24 +29,7 @@ module vscale_core
    output [`HASTI_BUS_WIDTH-1:0]   dmem_hwdata,
    input [`HASTI_BUS_WIDTH-1:0]    dmem_hrdata,
    input                           dmem_hready,
-   input [`HASTI_RESP_WIDTH-1:0]   dmem_hresp,
-   input                           htif_reset,
-   input                           htif_id,
-   input                           htif_pcr_req_valid,
-   output                          htif_pcr_req_ready,
-   input                           htif_pcr_req_rw,
-   input [`CSR_ADDR_WIDTH-1:0]     htif_pcr_req_addr,
-   input [`HTIF_PCR_WIDTH-1:0]     htif_pcr_req_data,
-   output                          htif_pcr_resp_valid,
-   input                           htif_pcr_resp_ready,
-   output [`HTIF_PCR_WIDTH-1:0]    htif_pcr_resp_data,
-   input                           htif_ipi_req_ready,
-   output                          htif_ipi_req_valid,
-   output                          htif_ipi_req_data,
-   output                          htif_ipi_resp_ready,
-   input                           htif_ipi_resp_valid,
-   input                           htif_ipi_resp_data,
-   output                          htif_debug_stats_pcr
+   input [`HASTI_RESP_WIDTH-1:0]   dmem_hresp
    );
 
    wire                            imem_wait;
@@ -60,11 +44,6 @@ module vscale_core
    wire [`HASTI_BUS_WIDTH-1:0]     dmem_wdata_delayed;
    wire [`HASTI_BUS_WIDTH-1:0]     dmem_rdata;
    wire                            dmem_badmem_e;
-
-   assign htif_ipi_req_valid = 1'b0;
-   assign htif_ipi_req_data = 1'b0;
-   assign htif_ipi_resp_ready = 1'b1;
-   assign htif_debug_stats_pcr = 1'b0;
 
    vscale_hasti_bridge imem_bridge(
                                    .haddr(imem_haddr),
@@ -114,7 +93,7 @@ module vscale_core
    vscale_pipeline pipeline(
                             .clk(clk),
                             .ext_interrupts(ext_interrupts),
-                            .reset(htif_reset),
+                            .reset(reset),
                             .imem_wait(imem_wait),
                             .imem_addr(imem_addr),
                             .imem_rdata(imem_rdata),
@@ -126,16 +105,7 @@ module vscale_core
                             .dmem_addr(dmem_addr),
                             .dmem_wdata_delayed(dmem_wdata_delayed),
                             .dmem_rdata(dmem_rdata),
-                            .dmem_badmem_e(dmem_badmem_e),
-                            .htif_reset(htif_reset),
-                            .htif_pcr_req_valid(htif_pcr_req_valid),
-                            .htif_pcr_req_ready(htif_pcr_req_ready),
-                            .htif_pcr_req_rw(htif_pcr_req_rw),
-                            .htif_pcr_req_addr(htif_pcr_req_addr),
-                            .htif_pcr_req_data(htif_pcr_req_data),
-                            .htif_pcr_resp_valid(htif_pcr_resp_valid),
-                            .htif_pcr_resp_ready(htif_pcr_resp_ready),
-                            .htif_pcr_resp_data(htif_pcr_resp_data)
+                            .dmem_badmem_e(dmem_badmem_e)
                             );
 
 endmodule // vscale_core

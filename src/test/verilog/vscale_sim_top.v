@@ -1,18 +1,11 @@
 `include "vscale_ctrl_constants.vh"
 `include "vscale_csr_addr_map.vh"
 `include "vscale_hasti_constants.vh"
+`include "vscale_platform_constants.vh"
 
 module vscale_sim_top(
                       input                        clk,
-                      input                        reset,
-                      input                        htif_pcr_req_valid,
-                      output                       htif_pcr_req_ready,
-                      input                        htif_pcr_req_rw,
-                      input [`CSR_ADDR_WIDTH-1:0]  htif_pcr_req_addr,
-                      input [`HTIF_PCR_WIDTH-1:0]  htif_pcr_req_data,
-                      output                       htif_pcr_resp_valid,
-                      input                        htif_pcr_resp_ready,
-                      output [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data
+                      input                        reset
                       );
 
    wire                                            resetn;
@@ -41,22 +34,12 @@ module vscale_sim_top(
    wire                                            dmem_hready;
    wire [`HASTI_RESP_WIDTH-1:0]                    dmem_hresp;
 
-   wire                                            htif_reset;
-
-   wire                                            htif_ipi_req_ready = 1'b0;
-   wire                                            htif_ipi_req_valid;
-   wire                                            htif_ipi_req_data;
-   wire                                            htif_ipi_resp_ready;
-   wire                                            htif_ipi_resp_valid = 1'b0;
-   wire                                            htif_ipi_resp_data = 1'b0;
-   wire                                            htif_debug_stats_pcr;
-   
    assign resetn = ~reset;
-   assign htif_reset = reset;
 
    vscale_core vscale(
                       .clk(clk),
-		      .ext_interrupts(0),
+                      .reset(reset),
+                      .ext_interrupts(`N_EXT_INTS'b0),
                       .imem_haddr(imem_haddr),
                       .imem_hwrite(imem_hwrite),
                       .imem_hsize(imem_hsize),
@@ -78,24 +61,7 @@ module vscale_sim_top(
                       .dmem_hwdata(dmem_hwdata),
                       .dmem_hrdata(dmem_hrdata),
                       .dmem_hready(dmem_hready),
-                      .dmem_hresp(dmem_hresp),
-                      .htif_reset(htif_reset),
-                      .htif_id(1'b0),
-                      .htif_pcr_req_valid(htif_pcr_req_valid),
-                      .htif_pcr_req_ready(htif_pcr_req_ready),
-                      .htif_pcr_req_rw(htif_pcr_req_rw),
-                      .htif_pcr_req_addr(htif_pcr_req_addr),
-                      .htif_pcr_req_data(htif_pcr_req_data),
-                      .htif_pcr_resp_valid(htif_pcr_resp_valid),
-                      .htif_pcr_resp_ready(htif_pcr_resp_ready),
-                      .htif_pcr_resp_data(htif_pcr_resp_data),
-                      .htif_ipi_req_ready(htif_ipi_req_ready),
-                      .htif_ipi_req_valid(htif_ipi_req_valid),
-                      .htif_ipi_req_data(htif_ipi_req_data),
-                      .htif_ipi_resp_ready(htif_ipi_resp_ready),
-                      .htif_ipi_resp_valid(htif_ipi_resp_valid),
-                      .htif_ipi_resp_data(htif_ipi_resp_data),
-                      .htif_debug_stats_pcr(htif_debug_stats_pcr)
+                      .dmem_hresp(dmem_hresp)
                       );
 
    vscale_dp_hasti_sram hasti_mem(

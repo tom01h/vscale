@@ -8,9 +8,6 @@ module vscale_hex_tb();
    reg clk;
    reg reset;
 
-   reg htif_pcr_resp_valid;
-   reg [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data;
-
    reg [255:0]                reason = 0;
    reg [1023:0]               loadmem = 0;
    reg [1023:0]               vpdfile = 0;
@@ -22,15 +19,7 @@ module vscale_hex_tb();
 
    vscale_sim_top DUT(
                       .clk(clk),
-                      .reset(reset),
-                      .htif_pcr_req_valid(1'b0),
-                      .htif_pcr_req_ready(),
-                      .htif_pcr_req_rw(1'b0),
-                      .htif_pcr_req_addr(`CSR_ADDR_TO_HOST),
-                      .htif_pcr_req_data(`HTIF_PCR_WIDTH'b0),
-                      .htif_pcr_resp_valid(),
-                      .htif_pcr_resp_ready(1'b1),
-                      .htif_pcr_resp_data(htif_pcr_resp_data)
+                      .reset(reset)
                       );
 
    initial begin
@@ -73,6 +62,9 @@ module vscale_hex_tb();
       end
       #100 reset = 0;
    end
+
+   reg htif_pcr_resp_valid;
+   reg [`HTIF_PCR_WIDTH-1:0] htif_pcr_resp_data;
 
    always @(posedge clk)
      htif_pcr_resp_valid <= DUT.vscale.dmem_en & (DUT.vscale.dmem_addr == 32'h00001000)& DUT.vscale.dmem_wen;
