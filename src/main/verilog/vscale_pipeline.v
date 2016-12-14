@@ -191,6 +191,7 @@ module vscale_pipeline
                        .PC_src_sel(PC_src_sel),
                        .inst_DX(inst_DX),
                        .rs1_data(rs1_data_bypassed),
+                       .imem_wait(imem_wait),
                        .PC_IF(PC_IF),
                        .PC_DX(PC_DX),
                        .handler_PC(handler_PC),
@@ -288,14 +289,16 @@ module vscale_pipeline
    assign dmem_addr = alu_out;
    always @(*) begin
       case(dmem_size)
-        `MEM_TYPE_LH,
-        `MEM_TYPE_LHU,
-        `MEM_TYPE_SH : misaligned_addr_p = (dmem_addr[0]);
-        `MEM_TYPE_LW,
-        `MEM_TYPE_LWU,
-        `MEM_TYPE_SW : misaligned_addr_p = |(dmem_addr[1:0]);
-        `MEM_TYPE_LD,
-        `MEM_TYPE_SD : misaligned_addr_p = |(dmem_addr[2:0]);
+//TEMP//TEMP// worst slack path
+//        `MEM_TYPE_LH,
+//        `MEM_TYPE_LHU,
+//        `MEM_TYPE_SH : misaligned_addr_p = (dmem_addr[0]);
+//        `MEM_TYPE_LW,
+//        `MEM_TYPE_LWU,
+//        `MEM_TYPE_SW : misaligned_addr_p = |(dmem_addr[1:0]);
+//        `MEM_TYPE_LD,
+//        `MEM_TYPE_SD : misaligned_addr_p = |(dmem_addr[2:0]);
+//TEMP//TEMP//
         default      : misaligned_addr_p = 1'b0;
       endcase
    end

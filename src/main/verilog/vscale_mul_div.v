@@ -98,13 +98,19 @@ module vscale_mul_div
            end
         end
         s_compute : begin
-           counter <= counter - 1;
-           b <= b >> 1;
+           counter <= counter - 1;            // remove for 4cyc mul
+           b <= b >> 1;                       // remove for 4cyc mul
            if (op == `MD_OP_MUL) begin
-              if (a[counter]) begin
-                 result <= result + b;
-              end
+              if (a[counter]) begin           // remove for 4cyc mul
+                 result <= result + b;        // remove for 4cyc mul
+              end                             // remove for 4cyc mul
+//              counter <= 0;
+//              if(sign_in_1 ^ sign_in_2)
+//                result <= -abs_in_1*abs_in_2;
+//              else
+//                result <= {32'h0,a[31:0]}*{32'h0,b[62:31]};
            end else begin
+//              counter <= counter - 1;
               b <= b >> 1;
               if (a_geq) begin
                  a <= a - b;

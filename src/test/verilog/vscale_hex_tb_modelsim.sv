@@ -3,6 +3,9 @@
 
 module vscale_hex_tb();
 
+   wire start = (DUT.vscale.pipeline.PCmux.PC_DX==32'h00001a60);
+   wire stop  = (DUT.vscale.pipeline.PCmux.PC_DX==32'h00001a70);
+
    localparam hexfile_words = 8192;
 
    reg clk;
@@ -51,7 +54,7 @@ module vscale_hex_tb();
                DUT.hasti_mem.mem[addr/4+i] = {op[7:0],op[15:8],op[23:16],op[31:24]};
                data = str;
             end
-         end else if ((rtype==4)|(rtype==5)) begin
+         end else if ((rtype==3)|(rtype==4)|(rtype==5)) begin
          end else if (rtype==1) begin
             $display("Running ...");
          end else begin

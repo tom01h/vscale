@@ -73,13 +73,17 @@ module vscale_dp_hasti_sram(
                p0_wsize <= p0_hsize;
                p0_wvalid <= 1'b1;
                if (p0_wvalid) begin
-                  mem[p0_word_waddr] <= (mem[p0_word_waddr] & ~p0_wmask) | (p0_wdata & p0_wmask);
+                  if (p0_state==s_w2) begin
+                     mem[p0_word_waddr] <= (mem[p0_word_waddr] & ~p0_wmask) | (p0_hwdata & p0_wmask);
+                  end else begin
+                     mem[p0_word_waddr] <= (mem[p0_word_waddr] & ~p0_wmask) | (p0_wdata & p0_wmask);
+                  end
                end
                p0_state <= s_w2;
             end else begin
                p0_bypass <= p0_wvalid && p0_word_waddr == p0_raddr;
             end
-         end // if (p0_htrans == `HASTI_TRANS_NONSEQ)
+         end
       end
    end
 
