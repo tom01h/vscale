@@ -97,8 +97,8 @@ module vscale_pipeline
    wire                                         md_req_ready;
    wire                                         md_req_in_1_signed;
    wire                                         md_req_in_2_signed;
-   wire [`MD_OUT_SEL_WIDTH-1:0]                 md_req_out_sel;
-   wire [`MD_OP_WIDTH-1:0]                      md_req_op;
+   wire                                         md_req_out_sel;
+   wire                                         md_req_op;
    wire                                         md_resp_valid;
    wire [`XPR_LEN-1:0]                          md_resp_result;
 

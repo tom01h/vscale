@@ -1,10 +1,6 @@
-`define MD_OP_WIDTH 2
-`define MD_OP_MUL `MD_OP_WIDTH'd0
-`define MD_OP_DIV `MD_OP_WIDTH'd1
-`define MD_OP_REM `MD_OP_WIDTH'd2
+`define MD_OP_MUL 1'b0
+`define MD_OP_DIV 1'b1
 
-`define MD_OUT_SEL_WIDTH 2
-`define MD_OUT_LO  `MD_OUT_SEL_WIDTH'd0
-`define MD_OUT_HI  `MD_OUT_SEL_WIDTH'd1
-`define MD_OUT_REM `MD_OUT_SEL_WIDTH'd2
+`define MD_OUT_LO  1'b0
+`define MD_OUT_HI  1'b1
 

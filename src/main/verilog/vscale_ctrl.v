@@ -30,8 +30,8 @@ module vscale_ctrl
    input                              md_req_ready,
    output reg                         md_req_in_1_signed,
    output reg                         md_req_in_2_signed,
-   output reg [`MD_OP_WIDTH-1:0]      md_req_op,
-   output reg [`MD_OUT_SEL_WIDTH-1:0] md_req_out_sel,
+   output reg                         md_req_op,
+   output reg                         md_req_out_sel,
    input                              md_resp_valid,
    output wire                        mret,
    output                             csr_req,
@@ -379,19 +379,19 @@ module vscale_ctrl
            md_req_op = `MD_OP_DIV;
            md_req_in_1_signed = 1;
            md_req_in_2_signed = 1;
+           md_req_out_sel = `MD_OUT_HI;
         end
         `RV32_FUNCT3_DIVU : begin
            md_req_op = `MD_OP_DIV;
+           md_req_out_sel = `MD_OUT_HI;
         end
         `RV32_FUNCT3_REM : begin
-           md_req_op = `MD_OP_REM;
+           md_req_op = `MD_OP_DIV;
            md_req_in_1_signed = 1;
            md_req_in_2_signed = 1;
-           md_req_out_sel = `MD_OUT_REM;
         end
         `RV32_FUNCT3_REMU : begin
-           md_req_op = `MD_OP_REM;
-           md_req_out_sel = `MD_OUT_REM;
+           md_req_op = `MD_OP_DIV;
         end
       endcase
    end
