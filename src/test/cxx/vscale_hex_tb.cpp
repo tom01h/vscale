@@ -44,6 +44,38 @@ int main(int argc, char **argv, char **env) {
   Vvscale_verilator_top* verilator_top = new Vvscale_verilator_top;
   verilator_top->trace(tfp, 99); // requires explicit max levels param
   tfp->open(vcdfile);
+
+  FILE *fd;
+  int  i;
+  char str[256];
+  char data[64];
+  int  bytec, addr, rtype, op;
+
+  fd = fopen("./loadmem.ihex","r");
+  if( fd == NULL ){
+    printf("ERROR!! loadmem.ihex not found\n");
+    return -1;
+  }
+
+  while(fgets(str, sizeof(str), fd)){
+    sscanf(str, ":%2x%4x%2x%s", &bytec, &addr, &rtype, data);
+    if(rtype==0 &&
+        (bytec == 16 || bytec == 12 || bytec == 8 || bytec == 4)){
+      for(i=0; i<bytec/4; i = i+1){
+        sscanf(data, "%8x%s", &op, data);
+        verilator_top->v__DOT__DUT__DOT__hasti_mem__DOT__mem[addr/4+i] =
+          ((op&0x0ff)<<24)|(((op>>8)&0x0ff)<<16)|(((op>>16)&0x0ff)<<8)|((op>>24)&0x0ff);
+      }
+    }else if ((rtype==3)|(rtype==4)|(rtype==5)){
+    }else if (rtype==1){
+      printf("Running ...\n");
+    }else{
+      printf("ERROR!! Not support ihex format\n");
+      printf("%s\n",str);
+      return -1;
+    }
+  }
+
   vluint64_t main_time = 0;
   while (!Verilated::gotFinish()) {
     verilator_top->reset = (main_time < 1000) ? 1 : 0;
