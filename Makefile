@@ -38,6 +38,7 @@ VERILATOR_OPTS = \
 	-Wno-fatal \
 	--Mdir sim \
 	--trace \
+	--l2-name v \
 
 VERILATOR_MAKE_OPTS = OPT_FAST="-O3"
 
