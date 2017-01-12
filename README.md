@@ -14,6 +14,6 @@ make modelsim-run-asm-tests
 or
 ```
 cd vscale
-make modelsim-sim
-make modelsim-run-asm-tests
+make verilator-sim
+make verilator-run-asm-tests
 ```
