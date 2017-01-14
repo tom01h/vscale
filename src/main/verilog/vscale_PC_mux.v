@@ -6,7 +6,7 @@ module vscale_PC_mux
    input [`PC_SRC_SEL_WIDTH-1:0] PC_src_sel,
    input [`INST_WIDTH-1:0]       inst_DX,
    input [`XPR_LEN-1:0]          rs1_data,
-   input                         imem_wait,
+   input                         stall_IF,
    input [`XPR_LEN-1:0]          PC_IF,
    input [`XPR_LEN-1:0]          PC_DX,
    input [`XPR_LEN-1:0]          handler_PC,
@@ -58,7 +58,7 @@ module vscale_PC_mux
    wire [`XPR_LEN-1:0] PC_PIF_p = base + offset;
 //   assign misaligned_fetch = |(PC_PIF_p[1:0]);
    assign misaligned_fetch = 1'b0; //TEMP//TEMP// logic loop
-   assign PC_PIF = (imem_wait|misaligned_fetch) ? PC_IF : PC_PIF_p;
+   assign PC_PIF = (stall_IF|misaligned_fetch) ? PC_IF : PC_PIF_p;
 
 endmodule // vscale_PC_mux
 

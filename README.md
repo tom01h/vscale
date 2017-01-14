@@ -17,4 +17,4 @@ cd vscale
 make verilator-sim
 make verilator-run-asm-tests
 ```
-If verilator 3.884 or earlier, remove "--l2-name v" option in Makefile
+If verilator 3.882 or earlier, remove "--l2-name v" option in Makefile

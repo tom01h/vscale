@@ -191,7 +191,7 @@ module vscale_pipeline
                        .PC_src_sel(PC_src_sel),
                        .inst_DX(inst_DX),
                        .rs1_data(rs1_data_bypassed),
-                       .imem_wait(imem_wait),
+                       .stall_IF(stall_IF),
                        .PC_IF(PC_IF),
                        .PC_DX(PC_DX),
                        .handler_PC(handler_PC),
