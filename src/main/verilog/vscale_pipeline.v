@@ -195,6 +195,7 @@ module vscale_pipeline
                        .inst_DX(inst_DX),
                        .rs1_data(rs1_data_bypassed),
                        .stall_IF(stall_IF),
+                       .stall_DX(stall_DX),
                        .PC_IF(PC_IF),
                        .PC_DX(PC_DX),
                        .handler_PC(handler_PC),

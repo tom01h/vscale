@@ -425,7 +425,8 @@ module vscale_ctrl
    always @(*) begin
       if (exception || interrupt_taken) begin
          PC_src_sel = `PC_HANDLER;
-      end else if (replay_IF || (stall_IF && !imem_wait)) begin
+//      end else if (replay_IF || (stall_IF && !imem_wait)) begin
+      end else if (replay_IF) begin
          PC_src_sel = `PC_REPLAY;
       end else if (mret_unkilled) begin
          PC_src_sel = `PC_EPC;
@@ -497,11 +498,13 @@ module vscale_ctrl
 
    assign load_in_WB = dmem_en_WB && !store_in_WB;
 
-   assign raw_rs1 = wr_reg_WB && (rs1_addr == reg_to_wr_WB)
+//   assign raw_rs1 = wr_reg_WB && (rs1_addr == reg_to_wr_WB)
+   assign raw_rs1 = wr_reg_unkilled_WB && (rs1_addr == reg_to_wr_WB)
      && (rs1_addr != 0) && uses_rs1;
    assign bypass_rs1 = !load_in_WB && raw_rs1;
 
-   assign raw_rs2 = wr_reg_WB && (rs2_addr == reg_to_wr_WB)
+//   assign raw_rs2 = wr_reg_WB && (rs2_addr == reg_to_wr_WB)
+   assign raw_rs2 = wr_reg_unkilled_WB && (rs2_addr == reg_to_wr_WB)
      && (rs2_addr != 0) && uses_rs2;
    assign bypass_rs2 = !load_in_WB && raw_rs2;
 
