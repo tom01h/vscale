@@ -4,6 +4,7 @@
 module vscale_PC_mux
   (
    input [`PC_SRC_SEL_WIDTH-1:0] PC_src_sel,
+   input                         branch_taken,
    input [`INST_WIDTH-1:0]       inst_DX,
    input [`XPR_LEN-1:0]          rs1_data,
    input                         stall_IF,
@@ -21,8 +22,10 @@ module vscale_PC_mux
 
    reg [`XPR_LEN-1:0]            base;
    reg [`XPR_LEN-1:0]            offset;
+   reg                           branch_not_taken;
 
    always @(*) begin
+      branch_not_taken = 1'b0;
       case (PC_src_sel)
         `PC_JAL_TARGET : begin
            base = PC_DX;
@@ -33,6 +36,7 @@ module vscale_PC_mux
            offset = jalr_offset;
         end
         `PC_BRANCH_TARGET : begin
+           branch_not_taken = ~branch_taken;
            base = PC_DX;
            offset = imm_b;
         end
@@ -55,7 +59,7 @@ module vscale_PC_mux
       endcase // case (PC_src_sel)
    end // always @ (*)
 
-   wire [`XPR_LEN-1:0] PC_PIF_p = base + offset;
+   wire [`XPR_LEN-1:0] PC_PIF_p = (branch_not_taken) ? PC_IF + `XPR_LEN'h4 : base + offset;
 //   assign misaligned_fetch = |(PC_PIF_p[1:0]);
    assign misaligned_fetch = 1'b0; //TEMP//TEMP// logic loop
    assign PC_PIF = (stall_IF|misaligned_fetch) ? PC_IF : PC_PIF_p;

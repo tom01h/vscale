@@ -16,6 +16,7 @@ module vscale_ctrl
    input                              cmp_true,
    input [`PRV_WIDTH-1:0]             prv,
    output reg [`PC_SRC_SEL_WIDTH-1:0] PC_src_sel,
+   output reg                         branch_taken,
    output reg [`IMM_TYPE_WIDTH-1:0]   imm_type,
    output                             bypass_rs1,
    output                             bypass_rs2,
@@ -82,7 +83,7 @@ module vscale_ctrl
    wire [`ALU_OP_WIDTH-1:0]           add_or_sub;
    wire [`ALU_OP_WIDTH-1:0]           srl_or_sra;
    reg [`ALU_OP_WIDTH-1:0]            alu_op_arith;
-   reg                                branch_taken;
+   reg                                bra;
    reg                                dmem_en_unkilled;
    reg                                dmem_wen_unkilled;
    reg                                jal;
@@ -216,6 +217,7 @@ module vscale_ctrl
       mret_unkilled = 1'b0;
       fence_i = 1'b0;
       branch_taken = 1'b0;
+      bra = 1'b0;
       jal = 1'b0;
       jalr = 1'b0;
       uses_rs1 = 1'b1;
@@ -244,6 +246,7 @@ module vscale_ctrl
         end
         `RV32_BRANCH : begin
            uses_rs2 = 1'b1;
+           bra = 1'b1;
            branch_taken = cmp_true;
            src_b_sel = `SRC_B_RS2;
            case (funct3)
@@ -426,7 +429,8 @@ module vscale_ctrl
          PC_src_sel = `PC_REPLAY;
       end else if (mret_unkilled) begin
          PC_src_sel = `PC_EPC;
-      end else if (branch_taken) begin
+//      end else if (branch_taken) begin
+      end else if (bra) begin
          PC_src_sel = `PC_BRANCH_TARGET;
       end else if (jal) begin
          PC_src_sel = `PC_JAL_TARGET;

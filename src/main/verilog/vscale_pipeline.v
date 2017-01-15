@@ -59,6 +59,7 @@ module vscale_pipeline
    endfunction // case
 
    wire [`PC_SRC_SEL_WIDTH-1:0]                 PC_src_sel;
+   wire                                         branch_taken;
    wire [`XPR_LEN-1:0]                          PC_PIF;
    wire                                         misaligned_fetch;
    reg                                          misaligned_addr_p;
@@ -145,6 +146,7 @@ module vscale_pipeline
                     .dmem_badmem_e(dmem_badmem_e),
                     .cmp_true(cmp_true),
                     .PC_src_sel(PC_src_sel),
+                    .branch_taken(branch_taken),
                     .imm_type(imm_type),
                     .src_a_sel(src_a_sel),
                     .src_b_sel(src_b_sel),
@@ -189,6 +191,7 @@ module vscale_pipeline
 
    vscale_PC_mux PCmux(
                        .PC_src_sel(PC_src_sel),
+                       .branch_taken(branch_taken),
                        .inst_DX(inst_DX),
                        .rs1_data(rs1_data_bypassed),
                        .stall_IF(stall_IF),
