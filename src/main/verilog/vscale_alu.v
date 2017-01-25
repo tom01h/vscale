@@ -3,11 +3,34 @@
 
 module vscale_alu
   (
-   input [`ALU_OP_WIDTH-1:0] op,
-   input [`XPR_LEN-1:0]      in1,
-   input [`XPR_LEN-1:0]      in2,
-   output reg [`XPR_LEN-1:0] out
+   input [`ALU_OP_WIDTH-1:0]    op,
+   input [`SRC_A_SEL_WIDTH-1:0] src_a_sel,
+   input [`XPR_LEN-1:0]         PC_DX,
+   input [`XPR_LEN-1:0]         rs1_data,
+   input [`SRC_B_SEL_WIDTH-1:0] src_b_sel,
+   input [`XPR_LEN-1:0]         imm,
+   input [`XPR_LEN-1:0]         rs2_data,
+   output reg [`XPR_LEN-1:0]    out
    );
+
+   reg [`XPR_LEN-1:0]           in1;
+   reg [`XPR_LEN-1:0]           in2;
+   always @(*) begin
+      case (src_a_sel)
+        `SRC_A_RS1 : in1 = rs1_data;
+        `SRC_A_PC : in1 = PC_DX;
+        default : in1 = 0;
+      endcase // case (src_a_sel)
+   end
+
+   always @(*) begin
+      case (src_b_sel)
+        `SRC_B_RS2 : in2 = rs2_data;
+        `SRC_B_IMM : in2 = imm;
+        `SRC_B_FOUR : in2 = 4;
+        default : in2 = 0;
+      endcase // case (src_b_sel)
+   end
 
    wire [`SHAMT_WIDTH-1:0]   shamt;
 

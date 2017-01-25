@@ -60,8 +60,6 @@ vscale_hasti_bridge.v \
 vscale_pipeline.v \
 vscale_ctrl.v \
 vscale_regfile.v \
-vscale_src_a_mux.v \
-vscale_src_b_mux.v \
 vscale_imm_gen.v \
 vscale_alu.v \
 vscale_mul_div.v \
@@ -142,6 +140,6 @@ $(MODELSIM_DIR)/_vmake: $(MODELSIM_TOP) $(SIM_SRCS) $(DESIGN_SRCES) $(MODELSIM_D
 	$(VLOG) $(VLOG_OPTS) $(MODELSIM_TOP) $(SIM_SRCS) $(DESIGN_SRCS)
 
 clean:
-	rm -rf $(SIM_DIR)/* $(OUT_DIR)/* $(MODELSIM_DIR)
+	rm -rf $(SIM_DIR)/* $(OUT_DIR)/* $(MODELSIM_DIR) wlft*
 
 .PHONY: clean run-asm-tests verilator-run-asm-tests

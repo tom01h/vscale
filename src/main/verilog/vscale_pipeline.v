@@ -81,13 +81,9 @@ module vscale_pipeline
    wire [`SRC_B_SEL_WIDTH-1:0]                  src_b_sel;
    wire [`REG_ADDR_WIDTH-1:0]                   rs1_addr;
    wire [`XPR_LEN-1:0]                          rs1_data;
-   wire [`XPR_LEN-1:0]                          rs1_data_bypassed;
    wire [`REG_ADDR_WIDTH-1:0]                   rs2_addr;
    wire [`XPR_LEN-1:0]                          rs2_data;
-   wire [`XPR_LEN-1:0]                          rs2_data_bypassed;
    wire [`ALU_OP_WIDTH-1:0]                     alu_op;
-   wire [`XPR_LEN-1:0]                          alu_src_a;
-   wire [`XPR_LEN-1:0]                          alu_src_b;
    wire [`XPR_LEN-1:0]                          alu_out;
    wire                                         cmp_true;
    wire                                         bypass_rs1;
@@ -193,7 +189,7 @@ module vscale_pipeline
                        .PC_src_sel(PC_src_sel),
                        .branch_taken(branch_taken),
                        .inst_DX(inst_DX),
-                       .rs1_data(rs1_data_bypassed),
+                       .rs1_data(rs1_data),
                        .stall_IF(stall_IF),
                        .stall_DX(stall_DX),
                        .PC_IF(PC_IF),
@@ -237,6 +233,9 @@ module vscale_pipeline
                           .rd1(rs1_data),
                           .ra2(rs2_addr),
                           .rd2(rs2_data),
+                          .bypass_rs1(bypass_rs1),
+                          .bypass_rs2(bypass_rs2),
+                          .bypass_data(bypass_data_WB),
                           .wen(wr_reg_WB),
                           .wa(reg_to_wr_WB),
                           .wd(wb_data_WB)
@@ -248,27 +247,14 @@ module vscale_pipeline
                           .imm(imm)
                           );
 
-   vscale_src_a_mux src_a_mux(
-                              .src_a_sel(src_a_sel),
-                              .PC_DX(PC_DX),
-                              .rs1_data(rs1_data_bypassed),
-                              .alu_src_a(alu_src_a)
-                              );
-
-   vscale_src_b_mux src_b_mux(
-                              .src_b_sel(src_b_sel),
-                              .imm(imm),
-                              .rs2_data(rs2_data_bypassed),
-                              .alu_src_b(alu_src_b)
-                              );
-
-   assign rs1_data_bypassed = bypass_rs1 ? bypass_data_WB : rs1_data;
-   assign rs2_data_bypassed = bypass_rs2 ? bypass_data_WB : rs2_data;
-
    vscale_alu alu(
                   .op(alu_op),
-                  .in1(alu_src_a),
-                  .in2(alu_src_b),
+                  .src_a_sel(src_a_sel),
+                  .PC_DX(PC_DX),
+                  .rs1_data(rs1_data),
+                  .src_b_sel(src_b_sel),
+                  .imm(imm),
+                  .rs2_data(rs2_data),
                   .out(alu_out)
                   );
 
@@ -281,8 +267,8 @@ module vscale_pipeline
                      .req_in_2_signed(md_req_in_2_signed),
                      .req_out_sel(md_req_out_sel),
                      .req_op(md_req_op),
-                     .req_in_1(rs1_data_bypassed),
-                     .req_in_2(rs2_data_bypassed),
+                     .req_in_1(rs1_data),
+                     .req_in_2(rs2_data),
                      .resp_valid(md_resp_valid),
                      .resp_result(md_resp_result)
                      );
@@ -316,7 +302,7 @@ module vscale_pipeline
 `endif
       end else if (~stall_WB) begin
          PC_WB <= PC_DX;
-         store_data_WB <= rs2_data_bypassed;
+         store_data_WB <= rs2_data;
          alu_out_WB <= alu_out;
          csr_rdata_WB <= csr_rdata;
          dmem_type_WB <= dmem_type;
@@ -351,7 +337,7 @@ module vscale_pipeline
    // CSR
 
    assign csr_addr = inst_DX[31:20];
-   assign csr_wdata = (csr_imm_sel) ? inst_DX[19:15] : rs1_data_bypassed;
+   assign csr_wdata = (csr_imm_sel) ? inst_DX[19:15] : rs1_data;
 
    vscale_csr_file csr(
                        .clk(clk),

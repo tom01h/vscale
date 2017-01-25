@@ -7,6 +7,9 @@ module vscale_regfile
    output [`XPR_LEN-1:0]       rd1,
    input [`REG_ADDR_WIDTH-1:0] ra2,
    output [`XPR_LEN-1:0]       rd2,
+   input                       bypass_rs1,
+   input                       bypass_rs2,
+   input  [`XPR_LEN-1:0]       bypass_data,
    input                       wen,
    input [`REG_ADDR_WIDTH-1:0] wa,
    input [`XPR_LEN-1:0]        wd
@@ -18,8 +21,8 @@ module vscale_regfile
    // fpga-style zero register
    assign wen_internal = wen && |wa;
 
-   assign rd1 = |ra1 ? data[ra1] : 0;
-   assign rd2 = |ra2 ? data[ra2] : 0;
+   assign rd1 = bypass_rs1 ? bypass_data : |ra1 ? data[ra1] : 0;
+   assign rd2 = bypass_rs2 ? bypass_data : |ra2 ? data[ra2] : 0;
 
    always @(posedge clk) begin
       if (wen_internal) begin
