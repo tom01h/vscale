@@ -5,26 +5,27 @@
 
 module vscale_csr_file
   (
-   input                        clk,
-   input [`N_EXT_INTS-1:0]      ext_interrupts, 
-   input                        reset,
-   input                        req,
-   input [`CSR_ADDR_WIDTH-1:0]  addr,
-   input [`CSR_CMD_WIDTH-1:0]   cmd,
-   input [`XPR_LEN-1:0]         wdata,
-   output reg [`PRV_WIDTH-1:0]  prv,
-   output                       illegal_access,
-   output reg [`XPR_LEN-1:0]    rdata,
-   input                        retire,
-   input                        exception,
-   input [`ECODE_WIDTH-1:0]     exception_code,
-   input                        mret,
-   input [`XPR_LEN-1:0]         exception_load_addr,
-   input [`XPR_LEN-1:0]         exception_PC,
-   output [`XPR_LEN-1:0]        handler_PC,
-   output [`XPR_LEN-1:0]        epc,
-   output                       interrupt_pending,
-   output reg                   interrupt_taken
+   input                       clk,
+   input [`N_EXT_INTS-1:0]     ext_interrupts,
+   input                       reset,
+   input                       req,
+   input [`CSR_ADDR_WIDTH-1:0] addr,
+   input [`CSR_CMD_WIDTH-1:0]  cmd,
+   input [`XPR_LEN-1:0]        wdata,
+   output reg [`PRV_WIDTH-1:0] ms_prv,
+   output reg [`FS_WIDTH-1:0]  ms_fs,
+   output                      illegal_access,
+   output reg [`XPR_LEN-1:0]   rdata,
+   input                       retire,
+   input                       exception,
+   input [`ECODE_WIDTH-1:0]    exception_code,
+   input                       mret,
+   input [`XPR_LEN-1:0]        exception_load_addr,
+   input [`XPR_LEN-1:0]        exception_PC,
+   output [`XPR_LEN-1:0]       handler_PC,
+   output [`XPR_LEN-1:0]       epc,
+   output                      interrupt_pending,
+   output reg                  interrupt_taken
    );
 
    reg [`CSR_COUNTER_WIDTH-1:0] cycle_full;
@@ -32,6 +33,7 @@ module vscale_csr_file
    reg [`CSR_COUNTER_WIDTH-1:0] instret_full;
    reg [1:0]                    ms_mpp;
    reg                          ms_mpie, ms_upie, ms_mie, ms_uie;
+   reg [`XPR_LEN-1:0]           fcsr;//TEMP//TEMP//
    reg [`XPR_LEN-1:0]           mtvec;
    wire [`XPR_LEN-1:0]          stvec = 32'h0; //TEMP//TEMP//rv32mi-p-csr
    reg [`XPR_LEN-1:0]           utvec; //TEMP//TEMP//
@@ -52,7 +54,7 @@ module vscale_csr_file
    wire [`XPR_LEN-1:0]          mhartid   = 32'h00000000;
 
    wire [`XPR_LEN-1:0]          mstatus;
-   wire [`XPR_LEN-1:0]          misa      = 32'h40101100;
+   wire [`XPR_LEN-1:0]          misa      = 32'h40101120;
    reg [`XPR_LEN-1:0]           medeleg;
    reg [`XPR_LEN-1:0]           mideleg;
    wire [`XPR_LEN-1:0]          mip;
@@ -76,7 +78,7 @@ module vscale_csr_file
    assign wen = req & (cmd[1] || cmd[0]);
 
    assign illegal_region = ((cmd[1] || cmd[0]) && (addr[11:10] == 2'b11))
-     || (cmd[2] && addr[9:8] > prv);
+     || (cmd[2] && addr[9:8] > ms_prv);
 
    assign illegal_access = illegal_region || (cmd[2] && !defined);
 
@@ -94,13 +96,20 @@ module vscale_csr_file
 
    always @(*) begin
       interrupt_code = `ICODE_TIMER;
-      case (prv)
+      case (ms_prv)
         `PRV_U : interrupt_taken = (ms_uie && uinterrupt) || minterrupt;
         `PRV_M : interrupt_taken = (ms_uie && minterrupt);
         default : interrupt_taken = 1'b1;
-      endcase // case (prv)
+      endcase // case (ms_prv)
    end
 
+   always @(posedge clk) begin
+      if (reset) begin
+         ms_fs <= 2'b00;
+      end else if (wen && addr == `CSR_ADDR_MSTATUS) begin
+         ms_fs <= wdata_internal[14:13];
+      end //TEMP//TEMP//for Dirty
+   end
    always @(posedge clk) begin
       if (reset) begin
          ms_mpp[1:0] <= 2'b00;
@@ -108,7 +117,7 @@ module vscale_csr_file
          ms_upie <= 1'b0;
          ms_mie <= 1'b0;
          ms_uie <= 1'b0;
-         prv <= 2'b11;
+         ms_prv <= 2'b11;
       end else if (wen && addr == `CSR_ADDR_MSTATUS) begin
          ms_mpp[1:0] <= wdata_internal[12:11];
          ms_mpie <= wdata_internal[7];
@@ -117,17 +126,17 @@ module vscale_csr_file
          ms_uie <= wdata_internal[0];
       end else if (exception) begin
          // no delegation to U means all exceptions go to M
-         ms_mpp[1:0] <= prv[1:0];
-         if(prv[1:0] == 2'b11) begin
+         ms_mpp[1:0] <= ms_prv[1:0];
+         if(ms_prv[1:0] == 2'b11) begin
             ms_mpie <= ms_mie;
          end else begin
             ms_mpie <= ms_uie;
          end
          ms_mie <= 1'b0;
-         prv <= 2'b11;
+         ms_prv <= 2'b11;
       end else if (mret) begin
          ms_mpp[1:0] <= 2'b00;
-         prv <= ms_mpp[1:0];
+         ms_prv <= ms_mpp[1:0];
          ms_mpie <= 1'b1;
          if(ms_mpp[1:0] == 2'b11) begin
             ms_mie <= ms_mpie;
@@ -243,6 +252,7 @@ module vscale_csr_file
         `CSR_ADDR_CYCLEHW   : begin rdata = cycle_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_TIMEHW    : begin rdata = time_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_INSTRETHW : begin rdata = instret_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
+        `CSR_ADDR_FCSR      : begin rdata = fcsr; defined = 1'b1; end
         default : begin rdata = 0; defined = 1'b0; end
       endcase // case (addr)
    end // always @ (*)
@@ -257,6 +267,7 @@ module vscale_csr_file
          mtvec <= 'h100;
          mtimecmp <= 0;
          mscratch <= 0;
+         fcsr <= 0;
       end else begin
          cycle_full <= cycle_full + 1;
          time_full <= time_full + 1;
@@ -296,6 +307,7 @@ module vscale_csr_file
               `CSR_ADDR_CYCLEHW   : cycle_full[`XPR_LEN+:`XPR_LEN] <= wdata_internal;
               `CSR_ADDR_TIMEHW    : time_full[`XPR_LEN+:`XPR_LEN] <= wdata_internal;
               `CSR_ADDR_INSTRETHW : instret_full[`XPR_LEN+:`XPR_LEN] <= wdata_internal;
+              `CSR_ADDR_FCSR      : cycle_full <= wdata_internal;
               default : ;
             endcase // case (addr)
          end // if (wen)

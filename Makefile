@@ -23,6 +23,7 @@ VSIM = vsim.exe
 VSIM_OPTS = -c work.vscale_hex_tb -lib work -do " \
 	add wave -noupdate /vscale_hex_tb/* -recursive; \
 	add wave -noupdate /vscale_hex_tb/DUT/vscale/pipeline/regfile/data; \
+	add wave -noupdate /vscale_hex_tb/DUT/vscale/pipeline/fregfile/data; \
 	run 30ns; quit"
 
 VERILATOR = verilator
@@ -60,6 +61,7 @@ vscale_hasti_bridge.v \
 vscale_pipeline.v \
 vscale_ctrl.v \
 vscale_regfile.v \
+vscale_fregfile.v \
 vscale_imm_gen.v \
 vscale_alu.v \
 vscale_mul_div.v \

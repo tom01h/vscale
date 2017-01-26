@@ -2,27 +2,27 @@
 
 module vscale_mul_div
   (
-   input         clk,
-   input         reset,
-   input         req_valid,
-   output        req_ready,
-   input         req_in_1_signed,
-   input         req_in_2_signed,
-   input         req_op,
-   input         req_out_sel,
-   input [31:0]  req_in_1,
-   input [31:0]  req_in_2,
-   output reg    resp_valid,
-   output [31:0] resp_result
+   input                     clk,
+   input                     reset,
+   input                     req_valid,
+   output                    req_ready,
+   input                     req_in_1_signed,
+   input                     req_in_2_signed,
+   input [`MDF_OP_WIDTH-1:0] req_op,
+   input                     req_out_sel,
+   input [31:0]              req_in_1,
+   input [31:0]              req_in_2,
+   output reg                resp_valid,
+   output [31:0]             resp_result
    );
 
-   reg           x_signed;
-   reg           y_signed;
-   reg [31:0]    x;
-   reg [31:0]    y;
-   reg           out_sel;
-   reg           op;
-   reg [31:0]    xh, xl;
+   reg                       x_signed;
+   reg                       y_signed;
+   reg [31:0]                x;
+   reg [31:0]                y;
+   reg                       out_sel;
+   reg [`MDF_OP_WIDTH-1:0]   op;
+   reg [31:0]                xh, xl;
 
    always @(posedge clk) begin
       if(req_valid & req_ready) begin
@@ -92,7 +92,7 @@ module vscale_mul_div
 ///////////////// DIV Only ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
    always @ (*) begin
-      if(op==`MD_OP_MUL)begin
+      if(op==`MDF_OP_MUL)begin
          in0v = 2'b00;
          in1v = 2'b00;
          in2v = 2'b00;
@@ -220,7 +220,7 @@ module vscale_mul_div
    wire [32:0] sum0,sum1,sum2;
    wire [33:0] cry0,cry1,cry2;
 
-   wire        sum64 = (op==`MD_OP_MUL);
+   wire        sum64 = (op==`MDF_OP_MUL);
 
    csa csa0(.in0(in00[32:0]), .in1(in01[32:0]), .in2(in02[32:0]), .sum(sum0[32:0]), .cry(cry0[33:1]));
    csa csa1(.in0(in10[32:0]), .in1(in11[32:0]), .in2(in12[32:0]), .sum(sum1[32:0]), .cry(cry1[33:1]));
@@ -243,11 +243,11 @@ module vscale_mul_div
       end
       if(reset) begin
          i<=0;
-      end else if(req_valid & req_ready) begin
-         if(req_op==`MD_OP_MUL) begin // MUL
+      end else if(req_valid & req_ready) begin // req cycle
+         if(req_op==`MDF_OP_MUL) begin // req cycle MUL
             i<=5;
             xh<=req_in_1;
-         end else begin  // DIV
+         end else if(req_op==`MDF_OP_DIV) begin  // req cycle DIV
             i  <= 17;
             q  <= ({32{1'b0}});
             sign <=  req_in_1[31]&req_in_1_signed;
@@ -262,37 +262,42 @@ module vscale_mul_div
             buf2[32] <= ~(req_in_1_signed&req_in_1[31]);
             buf1[32] <= ~(req_in_1_signed&req_in_1[31]);
             buf0[32] <= ~(req_in_1_signed&req_in_1[31]);
-         end
-      end else if((op==`MD_OP_MUL)&(i>0)) begin // MUL
-         ng2 <= (br2[2:1]==2'b10)|(br2[2:0]==3'b110);
-         ng5 <= (br5[2:1]==2'b10)|(br5[2:0]==3'b110);
-         if(i==1)
-           resp_valid <= 1'b1;
-         i<=i-1;
-         if(x_signed)
-           xh<={{4{xh[31]}},xh[31:4]};
-         else
-           xh<={4'h0       ,xh[31:4]};
-      end else if(y==0) begin // DIV
-         if(i>0)
-           resp_valid <= 1'b1;
-         else
-           resp_valid <= 1'b0;
-         i <= 0;
-      end else if((i>2)|(i>1)&(~x_signed))begin // DIV
-         q[31:2] <= q[29:0]|dq;
-         xh <= {sxh[29:0],xl[31:30]};
-         xl <= {xl[29:0],2'b00};
-         i  <= i-1;
-      end else if(i>1)begin // DIV
-         q[31:1] <= q[30:0]|dq;
-         xh <= {sxh[30:0],xl[31]};
-         xl <= {xl[30:0],1'b0};
-         i  <= i-1;
-      end else if(i==1)begin
-         resp_valid <= 1'b1;
-         i  <= i-1;
-      end
+         end else // req cycle FPU
+           resp_valid <= 1'b1; //TEMP//TEMP//FPU
+      end else begin
+         if((op==`MDF_OP_MUL)&(i>0)) begin // cont cycle MUL
+            ng2 <= (br2[2:1]==2'b10)|(br2[2:0]==3'b110);
+            ng5 <= (br5[2:1]==2'b10)|(br5[2:0]==3'b110);
+            if(i==1)
+              resp_valid <= 1'b1;
+            i<=i-1;
+            if(x_signed)
+              xh<={{4{xh[31]}},xh[31:4]};
+            else
+              xh<={4'h0       ,xh[31:4]};
+         end else if((op==`MDF_OP_DIV)&(i>0)) begin // cont cycle DIV
+            if(y==0) begin // DIV
+               if(i>0)
+                 resp_valid <= 1'b1;
+               else
+                 resp_valid <= 1'b0;
+               i <= 0;
+            end else if((i>2)|(i>1)&(~x_signed))begin
+               q[31:2] <= q[29:0]|dq;
+               xh <= {sxh[29:0],xl[31:30]};
+               xl <= {xl[29:0],2'b00};
+               i  <= i-1;
+            end else if(i>1)begin
+               q[31:1] <= q[30:0]|dq;
+               xh <= {sxh[30:0],xl[31]};
+               xl <= {xl[30:0],1'b0};
+               i  <= i-1;
+            end else if(i==1)begin
+               resp_valid <= 1'b1;
+               i  <= i-1;
+            end
+         end // cont cycle DIV
+      end // cont cycle
    end
 
 endmodule

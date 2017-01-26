@@ -14,7 +14,8 @@ module vscale_ctrl
    input                              dmem_wait,
    input                              dmem_badmem_e,
    input                              cmp_true,
-   input [`PRV_WIDTH-1:0]             prv,
+   input [`PRV_WIDTH-1:0]             ms_prv,
+   input [`FS_WIDTH-1:0]              ms_fs,
    output reg [`PC_SRC_SEL_WIDTH-1:0] PC_src_sel,
    output reg                         branch_taken,
    output reg [`IMM_TYPE_WIDTH-1:0]   imm_type,
@@ -22,6 +23,7 @@ module vscale_ctrl
    output                             bypass_rs2,
    output reg [`SRC_A_SEL_WIDTH-1:0]  src_a_sel,
    output reg [`SRC_B_SEL_WIDTH-1:0]  src_b_sel,
+   output reg                         src_f_sel,
    output reg [`ALU_OP_WIDTH-1:0]     alu_op,
    output wire                        dmem_en,
    output wire                        dmem_wen,
@@ -31,7 +33,7 @@ module vscale_ctrl
    input                              md_req_ready,
    output reg                         md_req_in_1_signed,
    output reg                         md_req_in_2_signed,
-   output reg                         md_req_op,
+   output reg [`MDF_OP_WIDTH-1:0]     md_req_op,
    output reg                         md_req_out_sel,
    input                              md_resp_valid,
    output wire                        mret,
@@ -44,8 +46,11 @@ module vscale_ctrl
    input                              interrupt_pending,
    input                              interrupt_taken,
    output wire                        wr_reg_WB,
+   output reg                         wr_freg_FWB,
    output reg [`REG_ADDR_WIDTH-1:0]   reg_to_wr_WB,
+   output reg [`REG_ADDR_WIDTH-1:0]   freg_to_wr_FWB,
    output reg [`WB_SRC_SEL_WIDTH-1:0] wb_src_sel_WB,
+   output reg [`WB_SRC_SEL_WIDTH-1:0] wb_fsrc_sel_FWB,
    output wire                        stall_IF,
    output wire                        kill_IF,
    output wire                        stall_DX,
@@ -54,7 +59,8 @@ module vscale_ctrl
    output wire                        kill_WB,
    output wire                        exception_WB,
    output wire [`ECODE_WIDTH-1:0]     exception_code_WB,
-   output wire                        retire_WB
+   output wire                        retire_WB,
+   output wire                        stall_FWB
    );
 
    // IF stage ctrl pipeline registers
@@ -91,7 +97,10 @@ module vscale_ctrl
    wire                               redirect;
    reg                                wr_reg_unkilled_DX;
    wire                               wr_reg_DX;
+   reg                                wr_freg_unkilled_DX;
+   wire                               wr_freg_DX;
    reg [`WB_SRC_SEL_WIDTH-1:0]        wb_src_sel_DX;
+   reg [`WB_SRC_SEL_WIDTH-1:0]        wb_fsrc_sel_DX;
    wire                               new_ex_DX;
    wire                               ex_DX;
    reg [`ECODE_WIDTH-1:0]             ex_code_DX;
@@ -103,6 +112,9 @@ module vscale_ctrl
    
    // WB stage ctrl pipeline registers
    reg                                wr_reg_unkilled_WB;
+   reg                                wr_freg_unkilled_WB;
+   wire                               wr_freg_WB;
+   reg [`WB_SRC_SEL_WIDTH-1:0]        wb_fsrc_sel_WB;
    reg                                had_ex_WB;
    reg [`ECODE_WIDTH-1:0]             prev_ex_code_WB;
    reg                                store_in_WB;
@@ -122,11 +134,19 @@ module vscale_ctrl
    
    // Hazard signals
    wire                               load_use;
+   wire                               fpu_use;
    reg                                uses_rs1;
    reg                                uses_rs2;
    wire                               raw_rs1;
    wire                               raw_rs2;
    wire                               raw_on_busy_md;
+   reg                                uses_frs1;
+   reg                                uses_frs2;
+   reg                                uses_frs3;
+   wire                               raw_frs1;
+   wire                               raw_frs2;
+   wire                               raw_frs3;
+   wire                               raw_on_busy_fp;
 
    // IF stage ctrl
 
@@ -163,6 +183,7 @@ module vscale_ctrl
    assign stall_DX = stall_WB ||
                      (( // internal hazards
                         load_use ||
+                        fpu_use ||
                         raw_on_busy_md ||
                         (fence_i && store_in_WB) ||
                         (uses_md_unkilled && !md_req_ready)
@@ -189,7 +210,7 @@ module vscale_ctrl
       end else if (ebreak) begin
          ex_code_DX = `ECODE_BREAKPOINT;
       end else if (ecall) begin
-         ex_code_DX = `ECODE_ECALL_FROM_U + prv;
+         ex_code_DX = `ECODE_ECALL_FROM_U + ms_prv;
       end
    end // always @ begin
 
@@ -222,14 +243,20 @@ module vscale_ctrl
       jalr = 1'b0;
       uses_rs1 = 1'b1;
       uses_rs2 = 1'b0;
+      uses_frs1 = 1'b0;
+      uses_frs2 = 1'b0;
+      uses_frs3 = 1'b0;
       imm_type = `IMM_I;
       src_a_sel = `SRC_A_RS1;
       src_b_sel = `SRC_B_IMM;
+      src_f_sel = 1'b0;
       alu_op = `ALU_OP_ADD;
       dmem_en_unkilled = 1'b0;
       dmem_wen_unkilled = 1'b0;
       wr_reg_unkilled_DX = 1'b0;
+      wr_freg_unkilled_DX = 1'b0;
       wb_src_sel_DX = `WB_SRC_ALU;
+      wb_fsrc_sel_DX = `WB_SRC_ALU;
       uses_md_unkilled = 1'b0;
       wfi_unkilled_DX = 1'b0;
       case (opcode)
@@ -240,6 +267,25 @@ module vscale_ctrl
         end
         `RV32_STORE : begin
            uses_rs2 = 1'b1;
+           imm_type = `IMM_S;
+           dmem_en_unkilled = 1'b1;
+           dmem_wen_unkilled = 1'b1;
+        end
+        `RV32_LOAD_FP : begin
+           illegal_instruction = (ms_fs == `FS_OFF);
+           src_f_sel = 1'b1;
+           dmem_en_unkilled = 1'b1;
+           wr_freg_unkilled_DX = 1'b1;
+           wb_src_sel_DX = `WB_SRC_MEM;
+           wb_fsrc_sel_DX = `WB_SRC_MEM;
+           uses_md_unkilled = 1'b1;
+        end
+        `RV32_STORE_FP : begin
+           illegal_instruction = (ms_fs == `FS_OFF);
+           src_f_sel = 1'b1;
+//           uses_rs1 = 1'b0;
+//           uses_frs1 = 1'b1;
+           uses_frs2 = 1'b1;
            imm_type = `IMM_S;
            dmem_en_unkilled = 1'b1;
            dmem_wen_unkilled = 1'b1;
@@ -316,7 +362,7 @@ module vscale_ctrl
                      `RV32_FUNCT12_ECALL : ecall = 1'b1;
                      `RV32_FUNCT12_EBREAK : ebreak = 1'b1;
                      `RV32_FUNCT12_MRET : begin
-                        if (prv == 0)
+                        if (ms_prv == 0)
                           illegal_instruction = 1'b1;
                         else
                           mret_unkilled = 1'b1;
@@ -359,44 +405,48 @@ module vscale_ctrl
    assign md_req_valid = uses_md;
 
    always @(*) begin
-      md_req_op = `MD_OP_MUL;
-      md_req_in_1_signed = 0;
-      md_req_in_2_signed = 0;
-      md_req_out_sel = `MD_OUT_LO;
-      case (funct3)
-        `RV32_FUNCT3_MUL : begin
-        end
-        `RV32_FUNCT3_MULH : begin
-           md_req_in_1_signed = 1;
-           md_req_in_2_signed = 1;
-           md_req_out_sel = `MD_OUT_HI;
-        end
-        `RV32_FUNCT3_MULHSU : begin
-           md_req_in_1_signed = 1;
-           md_req_out_sel = `MD_OUT_HI;
-        end
-        `RV32_FUNCT3_MULHU : begin
-           md_req_out_sel = `MD_OUT_HI;
-        end
-        `RV32_FUNCT3_DIV : begin
-           md_req_op = `MD_OP_DIV;
-           md_req_in_1_signed = 1;
-           md_req_in_2_signed = 1;
-           md_req_out_sel = `MD_OUT_HI;
-        end
-        `RV32_FUNCT3_DIVU : begin
-           md_req_op = `MD_OP_DIV;
-           md_req_out_sel = `MD_OUT_HI;
-        end
-        `RV32_FUNCT3_REM : begin
-           md_req_op = `MD_OP_DIV;
-           md_req_in_1_signed = 1;
-           md_req_in_2_signed = 1;
-        end
-        `RV32_FUNCT3_REMU : begin
-           md_req_op = `MD_OP_DIV;
-        end
-      endcase
+      if(opcode==`RV32_OP) begin
+         md_req_op = `MDF_OP_MUL;
+         md_req_in_1_signed = 0;
+         md_req_in_2_signed = 0;
+         md_req_out_sel = `MD_OUT_LO;
+         case (funct3)
+           `RV32_FUNCT3_MUL : begin
+           end
+           `RV32_FUNCT3_MULH : begin
+              md_req_in_1_signed = 1;
+              md_req_in_2_signed = 1;
+              md_req_out_sel = `MD_OUT_HI;
+           end
+           `RV32_FUNCT3_MULHSU : begin
+              md_req_in_1_signed = 1;
+              md_req_out_sel = `MD_OUT_HI;
+           end
+           `RV32_FUNCT3_MULHU : begin
+              md_req_out_sel = `MD_OUT_HI;
+           end
+           `RV32_FUNCT3_DIV : begin
+              md_req_op = `MDF_OP_DIV;
+              md_req_in_1_signed = 1;
+              md_req_in_2_signed = 1;
+              md_req_out_sel = `MD_OUT_HI;
+           end
+           `RV32_FUNCT3_DIVU : begin
+              md_req_op = `MDF_OP_DIV;
+              md_req_out_sel = `MD_OUT_HI;
+           end
+           `RV32_FUNCT3_REM : begin
+              md_req_op = `MDF_OP_DIV;
+              md_req_in_1_signed = 1;
+              md_req_in_2_signed = 1;
+           end
+           `RV32_FUNCT3_REMU : begin
+              md_req_op = `MDF_OP_DIV;
+           end
+         endcase
+      end else begin
+         md_req_op = `MDF_OP_NOP;
+      end
    end
 
    always @(*) begin
@@ -417,6 +467,7 @@ module vscale_ctrl
    assign dmem_en = dmem_en_unkilled && !kill_DX;
    assign dmem_wen = dmem_wen_unkilled && !kill_DX;
    assign wr_reg_DX = wr_reg_unkilled_DX && !kill_DX;
+   assign wr_freg_DX = wr_freg_unkilled_DX && !kill_DX;
    assign uses_md = uses_md_unkilled && !kill_DX;
    assign wfi_DX = wfi_unkilled_DX && !kill_DX;
    assign csr_req = (kill_DX) ? 1'b0 : |(csr_cmd);
@@ -449,6 +500,7 @@ module vscale_ctrl
          prev_killed_WB <= 0;
          had_ex_WB <= 0;
          wr_reg_unkilled_WB <= 0;
+         wr_freg_unkilled_WB <= 0;
          store_in_WB <= 0;
          dmem_en_WB <= 0;
          uses_md_WB <= 0;
@@ -457,7 +509,9 @@ module vscale_ctrl
          prev_killed_WB <= killed_DX;
          had_ex_WB <= ex_DX;
          wr_reg_unkilled_WB <= wr_reg_DX;
+         wr_freg_unkilled_WB <= wr_freg_DX;
          wb_src_sel_WB <= wb_src_sel_DX;
+         wb_fsrc_sel_WB <= wb_fsrc_sel_DX;
          prev_ex_code_WB <= ex_code_DX;
          reg_to_wr_WB <= reg_to_wr_DX;
          store_in_WB <= dmem_wen;
@@ -482,7 +536,7 @@ module vscale_ctrl
       ex_code_WB = prev_ex_code_WB;
       if (!had_ex_WB) begin
          if (dmem_access_exception) begin
-            ex_code_WB = wr_reg_unkilled_WB ?
+            ex_code_WB = (wr_reg_unkilled_WB|wr_freg_unkilled_WB) ?
                          `ECODE_LOAD_ACCESS_FAULT :
                          `ECODE_STORE_AMO_ACCESS_FAULT;
          end
@@ -492,6 +546,7 @@ module vscale_ctrl
    assign exception_WB = ex_WB;
    assign exception_code_WB = ex_code_WB;
    assign wr_reg_WB = wr_reg_unkilled_WB && !kill_WB;
+   assign wr_freg_WB = wr_freg_unkilled_WB && !kill_WB;
    assign retire_WB = !(kill_WB || killed_WB);
 
    // Hazard logic
@@ -499,16 +554,38 @@ module vscale_ctrl
    assign load_in_WB = dmem_en_WB && !store_in_WB;
 
 //   assign raw_rs1 = wr_reg_WB && (rs1_addr == reg_to_wr_WB)
-   assign raw_rs1 = wr_reg_unkilled_WB && (rs1_addr == reg_to_wr_WB)
-     && (rs1_addr != 0) && uses_rs1;
+   assign raw_rs1 = (wr_reg_unkilled_WB && (rs1_addr == reg_to_wr_WB) &&
+                     (rs1_addr != 0) && uses_rs1)  ||
+                    (wr_freg_unkilled_WB && (rs1_addr == reg_to_wr_WB) && uses_frs1) ||
+                    (wr_freg_FWB && (rs1_addr == freg_to_wr_FWB) && uses_frs1);
    assign bypass_rs1 = !load_in_WB && raw_rs1;
+//   assign bypass_rs1 = raw_rs1; //bypass ok when stall
 
 //   assign raw_rs2 = wr_reg_WB && (rs2_addr == reg_to_wr_WB)
-   assign raw_rs2 = wr_reg_unkilled_WB && (rs2_addr == reg_to_wr_WB)
-     && (rs2_addr != 0) && uses_rs2;
+   assign raw_rs2 = (wr_reg_unkilled_WB && (rs2_addr == reg_to_wr_WB) &&
+                     (rs2_addr != 0) && uses_rs2)  ||
+                    (wr_freg_unkilled_WB && (rs2_addr == reg_to_wr_WB) && uses_frs2) ||
+                    (wr_freg_FWB && (rs2_addr == freg_to_wr_FWB) && uses_frs2);
    assign bypass_rs2 = !load_in_WB && raw_rs2;
+//   assign bypass_rs2 = raw_rs2;
 
    assign raw_on_busy_md = uses_md_WB && (raw_rs1 || raw_rs2) && !md_resp_valid;
    assign load_use = load_in_WB && (raw_rs1 || raw_rs2);
+   assign fpu_use = wr_freg_FWB && (raw_rs1 || raw_rs2);
+
+   // FWB stage ctrl
+
+   always @(posedge clk) begin
+      if (reset) begin
+         wr_freg_FWB <= 0;
+         freg_to_wr_FWB <= 0;
+      end else if (~stall_FWB) begin
+         wr_freg_FWB <= wr_freg_WB;
+         freg_to_wr_FWB <= reg_to_wr_WB;
+         wb_fsrc_sel_FWB <= wb_fsrc_sel_WB;
+      end
+   end
+
+   assign stall_FWB = 1'b0;
 
 endmodule // vscale_ctrl

@@ -79,10 +79,15 @@ module vscale_pipeline
    wire [`XPR_LEN-1:0]                          imm;
    wire [`SRC_A_SEL_WIDTH-1:0]                  src_a_sel;
    wire [`SRC_B_SEL_WIDTH-1:0]                  src_b_sel;
+   wire                                         src_f_sel;
    wire [`REG_ADDR_WIDTH-1:0]                   rs1_addr;
-   wire [`XPR_LEN-1:0]                          rs1_data;
    wire [`REG_ADDR_WIDTH-1:0]                   rs2_addr;
+   wire [`REG_ADDR_WIDTH-1:0]                   rs3_addr;
+   wire [`XPR_LEN-1:0]                          rs1_data;
    wire [`XPR_LEN-1:0]                          rs2_data;
+   wire [`XPR_LEN-1:0]                          frs1_data;
+   wire [`XPR_LEN-1:0]                          frs2_data;
+   wire [`XPR_LEN-1:0]                          frs3_data;
    wire [`ALU_OP_WIDTH-1:0]                     alu_op;
    wire [`XPR_LEN-1:0]                          alu_out;
    wire                                         cmp_true;
@@ -95,7 +100,7 @@ module vscale_pipeline
    wire                                         md_req_in_1_signed;
    wire                                         md_req_in_2_signed;
    wire                                         md_req_out_sel;
-   wire                                         md_req_op;
+   wire [`MDF_OP_WIDTH-1:0]                     md_req_op;
    wire                                         md_resp_valid;
    wire [`XPR_LEN-1:0]                          md_resp_result;
 
@@ -106,12 +111,17 @@ module vscale_pipeline
 
    wire                                         kill_WB;
    wire                                         stall_WB;
+   wire                                         stall_FWB;
    reg [`XPR_LEN-1:0]                           bypass_data_WB;
    wire [`XPR_LEN-1:0]                          load_data_WB;
    reg [`XPR_LEN-1:0]                           wb_data_WB;
+   reg [`XPR_LEN-1:0]                           wb_data_FWB;
    wire [`REG_ADDR_WIDTH-1:0]                   reg_to_wr_WB;
+   wire [`REG_ADDR_WIDTH-1:0]                   freg_to_wr_FWB;
    wire                                         wr_reg_WB;
+   wire                                         wr_freg_FWB;
    wire [`WB_SRC_SEL_WIDTH-1:0]                 wb_src_sel_WB;
+   wire [`WB_SRC_SEL_WIDTH-1:0]                 wb_fsrc_sel_FWB;
    reg [`MEM_TYPE_WIDTH-1:0]                    dmem_type_WB;
 
    // CSR management
@@ -119,7 +129,8 @@ module vscale_pipeline
    wire [`CSR_ADDR_WIDTH-1:0]                   csr_addr;
    wire [`CSR_CMD_WIDTH-1:0]                    csr_cmd;
    wire                                         csr_imm_sel;
-   wire [`PRV_WIDTH-1:0]                        prv;
+   wire [`PRV_WIDTH-1:0]                        ms_prv;
+   wire [`FS_WIDTH-1:0]                         ms_fs;
    wire                                         illegal_csr_access;
    wire                                         interrupt_pending;
    wire                                         interrupt_taken;
@@ -146,6 +157,7 @@ module vscale_pipeline
                     .imm_type(imm_type),
                     .src_a_sel(src_a_sel),
                     .src_b_sel(src_b_sel),
+                    .src_f_sel(src_f_sel),
                     .bypass_rs1(bypass_rs1),
                     .bypass_rs2(bypass_rs2),
                     .alu_op(alu_op),
@@ -161,8 +173,11 @@ module vscale_pipeline
                     .md_req_out_sel(md_req_out_sel),
                     .md_resp_valid(md_resp_valid),
                     .wr_reg_WB(wr_reg_WB),
+                    .wr_freg_FWB(wr_freg_FWB),
                     .reg_to_wr_WB(reg_to_wr_WB),
+                    .freg_to_wr_FWB(freg_to_wr_FWB),
                     .wb_src_sel_WB(wb_src_sel_WB),
+                    .wb_fsrc_sel_FWB(wb_fsrc_sel_FWB),
                     .stall_IF(stall_IF),
                     .kill_IF(kill_IF),
                     .stall_DX(stall_DX),
@@ -172,6 +187,7 @@ module vscale_pipeline
                     .exception_WB(exception_WB),
                     .exception_code_WB(exception_code_WB),
                     .retire_WB(retire_WB),
+                    .stall_FWB(stall_FWB),
                     .csr_req(csr_req),
                     .csr_cmd(csr_cmd),
                     .csr_imm_sel(csr_imm_sel),
@@ -180,7 +196,8 @@ module vscale_pipeline
                     .illegal_csr_access(illegal_csr_access),
                     .interrupt_pending(interrupt_pending),
                     .interrupt_taken(interrupt_taken),
-                    .prv(prv),
+                    .ms_prv(ms_prv),
+                    .ms_fs(ms_fs),
                     .mret(mret)
                     );
 
@@ -226,6 +243,7 @@ module vscale_pipeline
 
    assign rs1_addr = inst_DX[19:15];
    assign rs2_addr = inst_DX[24:20];
+   assign rs3_addr = inst_DX[31:27];
 
    vscale_regfile regfile(
                           .clk(clk),
@@ -240,6 +258,25 @@ module vscale_pipeline
                           .wa(reg_to_wr_WB),
                           .wd(wb_data_WB)
                           );
+
+   always @(posedge clk) begin
+      if(~stall_FWB) begin
+         wb_data_FWB <= wb_data_WB;
+      end
+   end
+
+   vscale_fregfile fregfile(
+                            .clk(clk),
+                            .ra1(rs1_addr),
+                            .rd1(frs1_data),
+                            .ra2(rs2_addr),
+                            .rd2(frs2_data),
+                            .ra3(rs3_addr),
+                            .rd3(frs3_data),
+                            .wen(wr_freg_FWB),
+                            .wa(freg_to_wr_FWB),
+                            .wd(wb_data_FWB)
+                            );
 
    vscale_imm_gen imm_gen(
                           .inst(inst_DX),
@@ -302,7 +339,10 @@ module vscale_pipeline
 `endif
       end else if (~stall_WB) begin
          PC_WB <= PC_DX;
-         store_data_WB <= rs2_data;
+         if(src_f_sel)
+           store_data_WB <= frs2_data;
+         else
+           store_data_WB <= rs2_data;
          alu_out_WB <= alu_out;
          csr_rdata_WB <= csr_rdata;
          dmem_type_WB <= dmem_type;
@@ -347,7 +387,8 @@ module vscale_pipeline
                        .addr(csr_addr),
                        .cmd(csr_cmd),
                        .wdata(csr_wdata),
-                       .prv(prv),
+                       .ms_prv(ms_prv),
+                       .ms_fs(ms_fs),
                        .illegal_access(illegal_csr_access),
                        .rdata(csr_rdata),
                        .retire(retire_WB),
