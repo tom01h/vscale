@@ -253,7 +253,8 @@ module vscale_csr_file
         `CSR_ADDR_TIMEHW    : begin rdata = time_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_INSTRETHW : begin rdata = instret_full[`XPR_LEN+:`XPR_LEN]; defined = 1'b1; end
         `CSR_ADDR_FCSR      : begin rdata = fcsr&32'h0ff; defined = 1'b1; end
-        `CSR_ADDR_FCSR_F    : begin rdata = fcsr&32'h01f; defined = 1'b1; end
+        `CSR_ADDR_FFLAGS    : begin rdata = {27'h0,fcsr[4:0]}; defined = 1'b1; end
+        `CSR_ADDR_FRM       : begin rdata = {29'h0,fcsr[7:5]}; defined = 1'b1; end
         default : begin rdata = 0; defined = 1'b0; end
       endcase // case (addr)
    end // always @ (*)
@@ -309,7 +310,8 @@ module vscale_csr_file
               `CSR_ADDR_TIMEHW    : time_full[`XPR_LEN+:`XPR_LEN] <= wdata_internal;
               `CSR_ADDR_INSTRETHW : instret_full[`XPR_LEN+:`XPR_LEN] <= wdata_internal;
               `CSR_ADDR_FCSR      : fcsr <= wdata_internal;
-              `CSR_ADDR_FCSR_F    : fcsr[4:0] <= wdata_internal[4:0];
+              `CSR_ADDR_FFLAGS    : fcsr[4:0] <= wdata_internal[4:0];
+              `CSR_ADDR_FRM       : fcsr[7:5] <= wdata_internal[2:0];
               default : ;
             endcase // case (addr)
          end // if (wen)

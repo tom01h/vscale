@@ -1,5 +1,6 @@
 `include "vscale_alu_ops.vh"
 `include "rv32_opcodes.vh"
+`include "vscale_ctrl_constants.vh"
 
 module vscale_alu
   (

@@ -3,15 +3,13 @@
 # vscale
 
 In order to build and test vscale using the supplied makefile,  
-ModelSim must be installed and on the path.  
-or verilator 3.884 or lator must be installed and on the path.
-
+ModelSim must be installed and on the path.
 ```
 cd vscale
 make modelsim-sim
 make modelsim-run-asm-tests
 ```
-or
+or verilator 3.884 or lator must be installed and on the path.
 ```
 cd vscale
 make verilator-sim

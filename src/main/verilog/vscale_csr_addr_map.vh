@@ -1,7 +1,8 @@
 `define CSR_ADDR_WIDTH     12
 `define CSR_COUNTER_WIDTH  64
 
-`define CSR_ADDR_FCSR_F    12'h001
+`define CSR_ADDR_FFLAGS    12'h001
+`define CSR_ADDR_FRM       12'h002
 `define CSR_ADDR_FCSR      12'h003
 `define CSR_ADDR_CYCLE     12'hC00
 `define CSR_ADDR_TIME      12'hC01
