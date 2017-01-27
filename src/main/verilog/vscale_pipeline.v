@@ -258,11 +258,20 @@ module vscale_pipeline
                           .wa(reg_to_wr_WB),
                           .wd(wb_data_WB)
                           );
-
+   reg [`XPR_LEN-1:0]                           wb_data_FWB_in;
    always @(posedge clk) begin
       if(~stall_FWB) begin
-         wb_data_FWB <= wb_data_WB;
+         wb_data_FWB_in <= wb_data_WB;
       end
+   end
+   always @(*) begin
+      case (wb_fsrc_sel_FWB)
+        `WB_SRC_ALU : wb_data_FWB = wb_data_FWB_in;
+        `WB_SRC_MEM : wb_data_FWB = wb_data_FWB_in;
+        `WB_SRC_CSR : wb_data_FWB = wb_data_FWB_in;
+        `WB_SRC_MD : wb_data_FWB = md_resp_result;
+        default : wb_data_FWB = wb_data_FWB_in;
+      endcase
    end
 
    vscale_fregfile fregfile(
@@ -295,6 +304,7 @@ module vscale_pipeline
                   .out(alu_out)
                   );
 
+   wire [2:0] md_req_rm = inst_DX[14:12];//TEMP//TEMP//
    vscale_mul_div md(
                      .clk(clk),
                      .reset(reset),
@@ -304,8 +314,9 @@ module vscale_pipeline
                      .req_in_2_signed(md_req_in_2_signed),
                      .req_out_sel(md_req_out_sel),
                      .req_op(md_req_op),
-                     .req_in_1(rs1_data),
-                     .req_in_2(rs2_data),
+                     .req_rm(md_req_rm),
+                     .req_in_1((src_f_sel) ? frs1_data : rs1_data),
+                     .req_in_2((src_f_sel) ? frs2_data : rs2_data),
                      .resp_valid(md_resp_valid),
                      .resp_result(md_resp_result)
                      );

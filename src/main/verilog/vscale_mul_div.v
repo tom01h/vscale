@@ -9,6 +9,7 @@ module vscale_mul_div
    input                     req_in_1_signed,
    input                     req_in_2_signed,
    input [`MDF_OP_WIDTH-1:0] req_op,
+   input [2:0]               req_rm,//TEMP//TEMP//
    input                     req_out_sel,
    input [31:0]              req_in_1,
    input [31:0]              req_in_2,
@@ -262,8 +263,17 @@ module vscale_mul_div
             buf2[32] <= ~(req_in_1_signed&req_in_1[31]);
             buf1[32] <= ~(req_in_1_signed&req_in_1[31]);
             buf0[32] <= ~(req_in_1_signed&req_in_1[31]);
-         end else // req cycle FPU
-           resp_valid <= 1'b1; //TEMP//TEMP//FPU
+         end else if(req_op==`MDF_OP_NOP) begin// req cycle FPU
+            resp_valid <= 1'b1; //TEMP//TEMP//FPU
+            buf2[31:0] <= req_in_1[31:0];
+         end else if(req_op==`MDF_OP_SGN) begin// req cycle FPU
+            resp_valid <= 1'b1; //TEMP//TEMP//FPU
+            case(req_rm)
+              3'b000 : buf2[31:0] <= { req_in_2[31],req_in_1[30:0]};
+              3'b001 : buf2[31:0] <= {~req_in_2[31],req_in_1[30:0]};
+              3'b010 : buf2[31:0] <= {req_in_1[31]^req_in_2[31],req_in_1[30:0]};
+            endcase
+         end
       end else begin
          if((op==`MDF_OP_MUL)&(i>0)) begin // cont cycle MUL
             ng2 <= (br2[2:1]==2'b10)|(br2[2:0]==3'b110);

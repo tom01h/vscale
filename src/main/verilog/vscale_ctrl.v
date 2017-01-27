@@ -256,7 +256,7 @@ module vscale_ctrl
       wr_reg_unkilled_DX = 1'b0;
       wr_freg_unkilled_DX = 1'b0;
       wb_src_sel_DX = `WB_SRC_ALU;
-      wb_fsrc_sel_DX = `WB_SRC_ALU;
+      wb_fsrc_sel_DX = `WB_SRC_MD;
       uses_md_unkilled = 1'b0;
       wfi_unkilled_DX = 1'b0;
       case (opcode)
@@ -283,8 +283,6 @@ module vscale_ctrl
         `RV32_STORE_FP : begin
            illegal_instruction = (ms_fs == `FS_OFF);
            src_f_sel = 1'b1;
-//           uses_rs1 = 1'b0;
-//           uses_frs1 = 1'b1;
            uses_frs2 = 1'b1;
            imm_type = `IMM_S;
            dmem_en_unkilled = 1'b1;
@@ -393,6 +391,36 @@ module vscale_ctrl
            imm_type = `IMM_U;
            wr_reg_unkilled_DX = 1'b1;
         end
+        `RV32_OP_FP : begin
+           illegal_instruction = (ms_fs == `FS_OFF);
+           src_b_sel = `SRC_B_ZERO;
+           case (funct7)
+             `RV32_FUNCT7_FMVSX : begin
+                wr_freg_unkilled_DX = 1'b1;
+                uses_md_unkilled = 1'b1;
+                wb_fsrc_sel_DX = `WB_SRC_ALU;
+             end
+             `RV32_FUNCT7_FMVXS :begin
+                src_f_sel = 1'b1;
+                uses_rs1 = 1'b0;
+                uses_frs1 = 1'b1;
+                wr_reg_unkilled_DX = 1'b1;
+                uses_md_unkilled = 1'b1;
+                wb_src_sel_DX = `WB_SRC_MD;
+             end
+             `RV32_FUNCT7_FSGNJ : begin
+                src_f_sel = 1'b1;
+                uses_rs1 = 1'b0;
+                uses_frs1 = 1'b1;
+                uses_frs2 = 1'b1;
+                wr_freg_unkilled_DX = 1'b1;
+                uses_md_unkilled = 1'b1;
+             end
+             default : begin
+                illegal_instruction = 1'b1;
+             end
+           endcase
+        end
         default : begin
            illegal_instruction = 1'b1;
         end
@@ -446,6 +474,14 @@ module vscale_ctrl
          endcase
       end else begin
          md_req_op = `MDF_OP_NOP;
+         md_req_in_1_signed = 0;
+         md_req_in_2_signed = 0;
+         md_req_out_sel = `MD_OUT_HI;
+         case (funct7)
+           `RV32_FUNCT7_FSGNJ : begin
+              md_req_op = `MDF_OP_SGN;
+           end
+         endcase
       end
    end
 
@@ -571,7 +607,7 @@ module vscale_ctrl
 
    assign raw_on_busy_md = uses_md_WB && (raw_rs1 || raw_rs2) && !md_resp_valid;
    assign load_use = load_in_WB && (raw_rs1 || raw_rs2);
-   assign fpu_use = wr_freg_FWB && (raw_rs1 || raw_rs2);
+   assign fpu_use = (wr_freg_WB||wr_freg_FWB) && (raw_rs1 || raw_rs2);
 
    // FWB stage ctrl
 
