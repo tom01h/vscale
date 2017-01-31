@@ -14,7 +14,9 @@ module vscale_mul_div
    input [31:0]              req_in_1,
    input [31:0]              req_in_2,
    output reg                resp_valid,
-   output [31:0]             resp_result
+   output [31:0]             resp_result,
+   output reg [31:0]         resp_fbypass,
+   output [31:0]             resp_fresult
    );
 
    reg                       x_signed;
@@ -40,6 +42,9 @@ module vscale_mul_div
    reg [32:0]    buf0,buf1,buf2;
    assign resp_result = (out_sel==`MD_OUT_HI) ? buf2[31:0] : buf1[31:0];
    assign req_ready = (i == 5'b00000);
+   always @ (posedge clk)
+     resp_fbypass <= (out_sel==`MD_OUT_HI) ? buf2[31:0] : buf1[31:0];
+   assign resp_fresult = resp_fbypass;
 
 ///////////////// MUL Only vvvvvvvvvvvvvvvvvvvvvvvvvvvv
    wire [2:0]    br0 = {xh[1:0],1'b0};

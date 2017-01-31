@@ -93,6 +93,9 @@ module vscale_pipeline
    wire                                         cmp_true;
    wire                                         bypass_rs1;
    wire                                         bypass_rs2;
+   wire [1:0]                                   bypass_frs1;
+   wire [1:0]                                   bypass_frs2;
+   wire [1:0]                                   bypass_frs3;
    wire [`MEM_TYPE_WIDTH-1:0]                   dmem_type;
 
    wire                                         md_req_valid;
@@ -103,6 +106,8 @@ module vscale_pipeline
    wire [`MDF_OP_WIDTH-1:0]                     md_req_op;
    wire                                         md_resp_valid;
    wire [`XPR_LEN-1:0]                          md_resp_result;
+   wire [`XPR_LEN-1:0]                          md_resp_fbypass;
+   wire [`XPR_LEN-1:0]                          md_resp_fresult;
 
    reg [`XPR_LEN-1:0]                           PC_WB;
    reg [`XPR_LEN-1:0]                           alu_out_WB;
@@ -160,6 +165,9 @@ module vscale_pipeline
                     .src_f_sel(src_f_sel),
                     .bypass_rs1(bypass_rs1),
                     .bypass_rs2(bypass_rs2),
+                    .bypass_frs1(bypass_frs1),
+                    .bypass_frs2(bypass_frs2),
+                    .bypass_frs3(bypass_frs3),
                     .alu_op(alu_op),
                     .dmem_en(dmem_en),
                     .dmem_wen(dmem_wen),
@@ -269,7 +277,7 @@ module vscale_pipeline
         `WB_SRC_ALU : wb_data_FWB = wb_data_FWB_in;
         `WB_SRC_MEM : wb_data_FWB = wb_data_FWB_in;
         `WB_SRC_CSR : wb_data_FWB = wb_data_FWB_in;
-        `WB_SRC_MD : wb_data_FWB = md_resp_result;
+        `WB_SRC_MD : wb_data_FWB = md_resp_fresult;
         default : wb_data_FWB = wb_data_FWB_in;
       endcase
    end
@@ -282,6 +290,11 @@ module vscale_pipeline
                             .rd2(frs2_data),
                             .ra3(rs3_addr),
                             .rd3(frs3_data),
+                            .bypass_rs1(bypass_frs1),
+                            .bypass_rs2(bypass_frs2),
+                            .bypass_rs3(2'b00),
+                            .bypass_data0(md_resp_result),
+                            .bypass_data1(md_resp_fbypass),
                             .wen(wr_freg_FWB),
                             .wa(freg_to_wr_FWB),
                             .wd(wb_data_FWB)
@@ -318,7 +331,9 @@ module vscale_pipeline
                      .req_in_1((src_f_sel) ? frs1_data : rs1_data),
                      .req_in_2((src_f_sel) ? frs2_data : rs2_data),
                      .resp_valid(md_resp_valid),
-                     .resp_result(md_resp_result)
+                     .resp_result(md_resp_result),
+                     .resp_fbypass(md_resp_fbypass),
+                     .resp_fresult(md_resp_fresult)
                      );
 
 
