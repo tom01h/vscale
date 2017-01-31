@@ -35,6 +35,7 @@ VERILATOR_OPTS = \
 	-Wno-BLKSEQ \
 	--cc \
 	-I$(V_SRC_DIR) \
+	-I$(V_TEST_DIR) \
 	+1364-2001ext+v \
 	-Wno-fatal \
 	--Mdir sim \
@@ -118,6 +119,7 @@ $(OUT_DIR)/%.verilator.vcd: $(MEM_DIR)/%.ihex $(SIM_DIR)/Vvscale_verilator_top
 	cp $< loadmem.ihex
 	$(SIM_DIR)/Vvscale_verilator_top +max-cycles=$(MAX_CYCLES) --vcdfile=$@ > log
 	mv log $@.log
+	mv trace.log $@.trc
 
 $(OUT_DIR)/%.wlf: $(MEM_DIR)/%.ihex $(MODELSIM_DIR)/_vmake
 	mkdir -p output
@@ -125,6 +127,7 @@ $(OUT_DIR)/%.wlf: $(MEM_DIR)/%.ihex $(MODELSIM_DIR)/_vmake
 	$(VSIM) $(VSIM_OPTS)
 	mv transcript $@.log
 	mv vsim.wlf $@
+	mv trace.log $@.trc
 
 $(SIM_DIR)/simv: $(VCS_TOP) $(SIM_SRCS) $(DESIGN_SRCS) $(HDRS)
 	mkdir -p sim
