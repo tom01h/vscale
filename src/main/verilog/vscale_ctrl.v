@@ -157,21 +157,26 @@ module vscale_ctrl
    wire [1:0]                         raw_frs2;
    wire [1:0]                         raw_frs3;
 
+   reg                                imem_wait_l;
+   always @(posedge clk) begin
+      imem_wait_l <= imem_wait;
+   end
+
    // IF stage ctrl
 
    always @(posedge clk) begin
       if (reset) begin
          replay_IF <= 1'b1;
       end else begin
-         replay_IF <= ~stall_DX&((!redirect && imem_wait) || (fence_i && store_in_WB));
+         replay_IF <= (fence_i && store_in_WB);
       end
    end
 
    // interrupts kill IF, DX instructions -- WB may commit
    assign kill_IF = stall_IF || ex_IF || ex_DX || ex_WB || redirect || replay_IF || interrupt_taken;
    assign stall_IF = stall_DX ||
-                     ((imem_wait && !redirect) && !(ex_WB || interrupt_taken));
-   assign ex_IF = imem_badmem_e && !imem_wait && !redirect && !replay_IF;
+                     ((imem_wait_l && !redirect) && !(ex_WB || interrupt_taken));
+   assign ex_IF = imem_badmem_e && !imem_wait_l && !redirect && !replay_IF;
 
    // DX stage ctrl
 
