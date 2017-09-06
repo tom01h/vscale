@@ -385,10 +385,10 @@ module vscale_ctrl
                    endcase // case (funct12)
                 end // if ((rs1_addr == 0) && (reg_to_wr_DX == 0))
              end // case: `RV32_FUNCT3_PRIV
-             `RV32_FUNCT3_CSRRW : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
+             `RV32_FUNCT3_CSRRW : csr_cmd = `CSR_WRITE;
              `RV32_FUNCT3_CSRRS : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
              `RV32_FUNCT3_CSRRC : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
-             `RV32_FUNCT3_CSRRWI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_WRITE;
+             `RV32_FUNCT3_CSRRWI : csr_cmd = `CSR_WRITE;
              `RV32_FUNCT3_CSRRSI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_SET;
              `RV32_FUNCT3_CSRRCI : csr_cmd = (rs1_addr == 0) ? `CSR_READ : `CSR_CLEAR;
              default : illegal_instruction = 1'b1;
@@ -431,6 +431,17 @@ module vscale_ctrl
                 uses_frs2 = 1'b1;
                 wr_freg_unkilled_DX = 1'b1;
                 bypass_freg_unkilled_DX = 1'b1;
+                uses_md_unkilled = 1'b1;
+             end
+             `RV32_FUNCT7_FADDS,
+             `RV32_FUNCT7_FSUBS,
+             `RV32_FUNCT7_FMULS : begin
+                src_f_sel = 1'b1;
+                uses_rs1 = 1'b0;
+                uses_frs1 = 1'b1;
+                uses_frs2 = 1'b1;
+                wr_freg_unkilled_DX = 1'b1;
+                bypass_freg_unkilled_DX = 1'b0;
                 uses_md_unkilled = 1'b1;
              end
              default : begin
@@ -489,7 +500,7 @@ module vscale_ctrl
               md_req_op = `MDF_OP_DIV;
            end
          endcase
-      end else begin
+      end else if(opcode==`RV32_OP_FP)begin
          md_req_op = `MDF_OP_NOP;
          md_req_in_1_signed = 0;
          md_req_in_2_signed = 0;
@@ -498,7 +509,21 @@ module vscale_ctrl
            `RV32_FUNCT7_FSGNJ : begin
               md_req_op = `MDF_OP_SGN;
            end
+           `RV32_FUNCT7_FADDS : begin
+              md_req_op = `MDF_OP_FAD;
+           end
+           `RV32_FUNCT7_FSUBS : begin
+              md_req_op = `MDF_OP_FSB;
+           end
+           `RV32_FUNCT7_FMULS : begin
+              md_req_op = `MDF_OP_FML;
+           end
          endcase
+      end else begin
+         md_req_op = `MDF_OP_NOP;
+         md_req_in_1_signed = 0;
+         md_req_in_2_signed = 0;
+         md_req_out_sel = `MD_OUT_HI;
       end
    end
 

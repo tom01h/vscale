@@ -17,6 +17,7 @@ module vscale_csr_file
    output                      illegal_access,
    output reg [`XPR_LEN-1:0]   rdata,
    input                       retire,
+   input [4:0]                 md_resp_fflag,
    input                       exception,
    input [`ECODE_WIDTH-1:0]    exception_code,
    input                       mret,
@@ -273,6 +274,7 @@ module vscale_csr_file
       end else begin
          cycle_full <= cycle_full + 1;
          time_full <= time_full + 1;
+         fcsr[4:0] <= fcsr[4:0] | md_resp_fflag;
          if (retire)
            instret_full <= instret_full + 1;
          mtime_full <= mtime_full + 1;

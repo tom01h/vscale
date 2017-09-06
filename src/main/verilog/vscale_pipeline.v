@@ -108,6 +108,7 @@ module vscale_pipeline
    wire [`XPR_LEN-1:0]                          md_resp_result;
    wire [`XPR_LEN-1:0]                          md_resp_fbypass;
    wire [`XPR_LEN-1:0]                          md_resp_fresult;
+   wire [4:0]                                   md_resp_fflag;
 
    reg [`XPR_LEN-1:0]                           PC_WB;
    reg [`XPR_LEN-1:0]                           alu_out_WB;
@@ -333,7 +334,8 @@ module vscale_pipeline
                      .resp_valid(md_resp_valid),
                      .resp_result(md_resp_result),
                      .resp_fbypass(md_resp_fbypass),
-                     .resp_fresult(md_resp_fresult)
+                     .resp_fresult(md_resp_fresult),
+                     .resp_fflag(md_resp_fflag)
                      );
 
 
@@ -418,6 +420,7 @@ module vscale_pipeline
                        .illegal_access(illegal_csr_access),
                        .rdata(csr_rdata),
                        .retire(retire_WB),
+                       .md_resp_fflag(md_resp_fflag),//TEMP//TEMP// cancel
                        .exception(exception_WB),
                        .exception_code(exception_code_WB),
                        .exception_load_addr(alu_out_WB),
