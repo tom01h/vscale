@@ -331,6 +331,7 @@ module vscale_pipeline
                      .req_rm(md_req_rm),
                      .req_in_1((src_f_sel) ? frs1_data : rs1_data),
                      .req_in_2((src_f_sel) ? frs2_data : rs2_data),
+                     .req_in_3(              frs3_data),
                      .resp_valid(md_resp_valid),
                      .resp_result(md_resp_result),
                      .resp_fbypass(md_resp_fbypass),

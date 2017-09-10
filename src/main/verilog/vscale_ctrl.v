@@ -83,6 +83,7 @@ module vscale_ctrl
    wire [2:0]                         funct3 = inst_DX[14:12];
    wire [`REG_ADDR_WIDTH-1:0]         rs1_addr = inst_DX[19:15];
    wire [`REG_ADDR_WIDTH-1:0]         rs2_addr = inst_DX[24:20];
+   wire [`REG_ADDR_WIDTH-1:0]         rs3_addr = inst_DX[31:27];
    wire [`REG_ADDR_WIDTH-1:0]         reg_to_wr_DX = inst_DX[11:7];
    reg                                illegal_instruction;
    reg                                ebreak;
@@ -449,6 +450,21 @@ module vscale_ctrl
              end
            endcase
         end
+        `RV32_MADD,
+        `RV32_NMADD,
+        `RV32_MSUB,
+        `RV32_NMSUB : begin
+           illegal_instruction = (ms_fs == `FS_OFF);
+           src_b_sel = `SRC_B_ZERO;
+           src_f_sel = 1'b1;
+           uses_rs1 = 1'b0;
+           uses_frs1 = 1'b1;
+           uses_frs2 = 1'b1;
+           uses_frs3 = 1'b1;
+           wr_freg_unkilled_DX = 1'b1;
+           bypass_freg_unkilled_DX = 1'b0;
+           uses_md_unkilled = 1'b1;
+        end
         default : begin
            illegal_instruction = 1'b1;
         end
@@ -519,6 +535,26 @@ module vscale_ctrl
               md_req_op = `MDF_OP_FML;
            end
          endcase
+      end else if(opcode==`RV32_MADD)begin
+         md_req_in_1_signed = 0;
+         md_req_in_2_signed = 0;
+         md_req_out_sel = `MD_OUT_HI;
+         md_req_op = `MDF_OP_FMA;
+      end else if(opcode==`RV32_NMADD)begin
+         md_req_in_1_signed = 0;
+         md_req_in_2_signed = 0;
+         md_req_out_sel = `MD_OUT_HI;
+         md_req_op = `MDF_OP_FNA;
+      end else if(opcode==`RV32_MSUB)begin
+         md_req_in_1_signed = 0;
+         md_req_in_2_signed = 0;
+         md_req_out_sel = `MD_OUT_HI;
+         md_req_op = `MDF_OP_FMS;
+      end else if(opcode==`RV32_NMSUB)begin
+         md_req_in_1_signed = 0;
+         md_req_in_2_signed = 0;
+         md_req_out_sel = `MD_OUT_HI;
+         md_req_op = `MDF_OP_FNS;
       end else begin
          md_req_op = `MDF_OP_NOP;
          md_req_in_1_signed = 0;
@@ -649,11 +685,15 @@ module vscale_ctrl
    assign bypass_rs2 = raw_rs2;
    assign bypass_frs2 = raw_frs2;
 
-   assign raw_on_busy_md = uses_md_WB && (raw_rs1 || raw_rs2 || raw_frs1[0] || raw_frs2[0]) &&
+   assign raw_frs3={(wr_freg_FWB && (rs3_addr == freg_to_wr_FWB) && uses_frs3),
+                    (wr_freg_unkilled_WB && (rs3_addr == reg_to_wr_WB) && uses_frs3)};
+   assign bypass_frs3 = raw_frs3;
+
+   assign raw_on_busy_md = uses_md_WB && (raw_rs1 || raw_rs2 || raw_frs1[0] || raw_frs2[0] || raw_frs3[0]) &&
                            !md_resp_valid && !bypass_freg_WB;
    assign load_use = load_in_WB && (raw_rs1 || raw_rs2);
-   assign fpu_use = (wr_freg_WB  && (raw_frs1[0] || raw_frs2[0]) && !bypass_freg_WB)||
-                    (wr_freg_FWB && (raw_frs1[1] || raw_frs2[1]) && !bypass_freg_FWB);
+   assign fpu_use = (wr_freg_WB  && (raw_frs1[0] || raw_frs2[0] || raw_frs3[0]) && !bypass_freg_WB)||
+                    (wr_freg_FWB && (raw_frs1[1] || raw_frs2[1] || raw_frs3[1]) && !bypass_freg_FWB);
 
    // FWB stage ctrl
 

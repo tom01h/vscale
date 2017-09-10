@@ -13,6 +13,7 @@ module vscale_mul_div
    input                     req_out_sel,
    input [31:0]              req_in_1,
    input [31:0]              req_in_2,
+   input [31:0]              req_in_3,
    output reg                resp_valid,
    output [31:0]             resp_result,
    output reg [31:0]         resp_fbypass,
@@ -37,10 +38,10 @@ module vscale_mul_div
          x_signed <= req_in_1_signed;
          y_signed <= req_in_2_signed;
          x <= req_in_1;
-         if(req_op!=`MDF_OP_FML)
-           y <= req_in_2;
-         else
+         if((req_op==`MDF_OP_FML)|(req_op==`MDF_OP_FMA)|(req_op==`MDF_OP_FNA)|(req_op==`MDF_OP_FMS)|(req_op==`MDF_OP_FNS))
            y<={(req_in_2[30:23]!=8'h00),req_in_2[22:0],8'h00};
+         else
+           y <= req_in_2;
          out_sel <= req_out_sel;
          op <= req_op;
       end
@@ -113,7 +114,13 @@ module vscale_mul_div
 
    wire [7:0]    expx = (req_in_1[30:23]==8'h00) ? 8'h01 : req_in_1[30:23];
    wire [7:0]    expy = (req_in_2[30:23]==8'h00) ? 8'h01 : req_in_2[30:23];
-   wire [8:0]    exps = {1'b0,expx}-{1'b0,expy};
+   wire [7:0]    expz = (req_in_3[30:23]==8'h00) ? 8'h01 : req_in_3[30:23];
+   wire [8:0]    expm = expx + expy - 127;
+   wire [9:0]    exps = ( ((req_op==`MDF_OP_FAD)|(req_op==`MDF_OP_FSB)) ? {1'b0,expx}-{1'b0,expy} :
+                          (req_op==`MDF_OP_FML) ? {1'b0,expm} :
+                          ((req_op==`MDF_OP_FMA)|(req_op==`MDF_OP_FNA)|
+                           (req_op==`MDF_OP_FMS)|(req_op==`MDF_OP_FNS)) ? {1'b0,expm} - {1'b0,expz} :
+                          {9{1'bx}});
 
    reg [25:0]    fracr;
    reg [26:0]    guard;
@@ -175,7 +182,8 @@ module vscale_mul_div
 ///////////////// FPU Only ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
    always @ (*) begin
-      if((op==`MDF_OP_MUL)|(op==`MDF_OP_FML))begin
+      if(   (op==`MDF_OP_MUL)|(op==`MDF_OP_FML)|
+         ( ((op==`MDF_OP_FMA)|(op==`MDF_OP_FNA)|(op==`MDF_OP_FMS)|(op==`MDF_OP_FNS)) &(i>1) )  )begin
          in0v = 2'b00;
          in1v = 2'b00;
          in2v = 2'b00;
@@ -297,8 +305,7 @@ module vscale_mul_div
                in2v = 2'b00;
             end
          end
-//      end else if((op==`MDF_OP_FAD)|(op==`MDF_OP_FSB))begin
-      end else begin
+      end else if((op==`MDF_OP_FAD)|(op==`MDF_OP_FSB))begin
          in0v = 2'b00;
          in1v = 2'b00;
          in2v = 2'b00;
@@ -312,21 +319,55 @@ module vscale_mul_div
             if(sgn0^sgn1)begin  // {fracr,guard} <= {frac1,27'h0}-({frac0,27'h0}>>27);
                {in20[32:0],in10[31:0]} =  {1'b0,xh[31:0],xl[31:0]};
                {in21[32:0],in11[31:0]} =~({1'b0,buf2[31:0],buf1[31:0]}>>27);
-               {in22[32:0],in12[31:0]} =  {{32{1'b0}},{30{1'b0}},1'b1} ;
+               {in22[32:0],in12[31:0]} =  {{33{1'b0}},{31{1'b0}},1'b1};
             end else begin      // {fracr,guard} <= {frac1,27'h0}+({frac0,27'h0}>>27);
                {in20[32:0],in10[31:0]} =  {1'b0,xh[31:0],xl[31:0]};
                {in21[32:0],in11[31:0]} = ({1'b0,buf2[31:0],buf1[31:0]}>>27);
-               {in22[32:0],in12[31:0]} =  {{32{1'b0}},{30{1'b0}},1'b0} ;
+               {in22[32:0],in12[31:0]} =  {{33{1'b0}},{31{1'b0}},1'b0};
             end
          end else begin
             if(sgn0^sgn1)begin  // {fracr,guard} <= {frac1,27'h0}-({frac0,27'h0}>>expd);
                {in20[32:0],in10[31:0]} =  {1'b0,xh[31:0],xl[31:0]};
                {in21[32:0],in11[31:0]} =~({1'b0,buf2[31:0],buf1[31:0]}>>expd);
-               {in22[32:0],in12[31:0]} =  {{32{1'b0}},{30{1'b0}},1'b1} ;
+               {in22[32:0],in12[31:0]} =  {{33{1'b0}},{31{1'b0}},1'b1};
             end else begin      // {fracr,guard} <= {frac1,27'h0}+({frac0,27'h0}>>expd);
                {in20[32:0],in10[31:0]} =  {1'b0,xh[31:0],xl[31:0]};
                {in21[32:0],in11[31:0]} = ({1'b0,buf2[31:0],buf1[31:0]}>>expd);
-               {in22[32:0],in12[31:0]} =  {{32{1'b0}},{30{1'b0}},1'b0} ;
+               {in22[32:0],in12[31:0]} =  {{33{1'b0}},{31{1'b0}},1'b0};
+            end
+         end
+//      end else if((op==`MDF_OP_FMA)|(op==`MDF_OP_FNA)|(op==`MDF_OP_FMS)|(op==`MDF_OP_FNS))begin
+      end else begin
+         in0v = 2'b00;
+         in1v = 2'b00;
+         in2v = 2'b00;
+         in10[32] = 1'b0;
+         in11[32] = 1'b0;
+         in12[32] = 1'b0;
+         in00[32] = 1'b0;
+         in01[32] = 1'b0;
+         in02[32] = 1'b0;
+         if(expd>=55)begin
+            if(sgn0^sgn1)begin  // {m,guard} <= {m[55:0],25'h0}-({fracz,56'h0}>>55);
+               {in20[32:0],in10[31:0],in00[31:0]} =~({1'b0,xl[31:0],63'h0}>>55);
+               {in21[32:0],in11[31:0],in01[31:0]} = ({1'b0,buf2[31:0],buf1[31:0],32'h0});
+//               {in22[32:0],in12[31:0],in02[31:0]} =  {{33{1'b0}},{32{1'b0}},{31{1'b0}},1'b1};
+               {in22[32:0],in12[31:0],in02[31:0]} =  {{33{1'b0}},{31{1'b0}},1'b1,{32{1'b0}}}; //TEMP//TEMP// loss of accuracy
+            end else begin      // {m,guard} <= {m[55:0],25'h0}+({fracz,56'h0}>>55);
+               {in20[32:0],in10[31:0],in00[31:0]} = ({1'b0,xl[31:0],63'h0}>>55);
+               {in21[32:0],in11[31:0],in01[31:0]} = ({1'b0,buf2[31:0],buf1[31:0],32'h0});
+               {in22[32:0],in12[31:0],in02[31:0]} =  {{33{1'b0}},{32{1'b0}},{31{1'b0}},1'b0};
+            end
+         end else begin
+            if(sgn0^sgn1)begin  // {m[55:0],25'h0}-({fracz,56'h0}>>expd);
+               {in20[32:0],in10[31:0],in00[31:0]} =~({1'b0,xl[31:0],63'h0}>>expd);
+               {in21[32:0],in11[31:0],in01[31:0]} = ({1'b0,buf2[31:0],buf1[31:0],32'h0});
+//               {in22[32:0],in12[31:0],in02[31:0]} =  {{33{1'b0}},{32{1'b0}},{31{1'b0}},1'b1};
+               {in22[32:0],in12[31:0],in02[31:0]} =  {{33{1'b0}},{31{1'b0}},1'b1,{32{1'b0}}}; //TEMP//TEMP// loss of accuracy
+            end else begin      // {m[55:0],25'h0}+({fracz,56'h0}>>expd);
+               {in20[32:0],in10[31:0],in00[31:0]} = ({1'b0,xl[31:0],63'h0}>>expd);
+               {in21[32:0],in11[31:0],in01[31:0]} = ({1'b0,buf2[31:0],buf1[31:0],32'h0});
+               {in22[32:0],in12[31:0],in02[31:0]} =  {{33{1'b0}},{32{1'b0}},{31{1'b0}},1'b0};
             end
          end
       end
@@ -335,7 +376,8 @@ module vscale_mul_div
    wire [32:0] sum0,sum1,sum2;
    wire [33:0] cry0,cry1,cry2;
 
-   wire        sum64 = (op==`MDF_OP_MUL)|(op==`MDF_OP_FAD)|(op==`MDF_OP_FSB)|(op==`MDF_OP_FML);
+   wire        sum64 = ((op==`MDF_OP_MUL)|(op==`MDF_OP_FAD)|(op==`MDF_OP_FSB)|(op==`MDF_OP_FML)|
+                        (op==`MDF_OP_FMA)|(op==`MDF_OP_FNA)|(op==`MDF_OP_FMS)|(op==`MDF_OP_FNS));
 
    csa csa0(.in0(in00[32:0]), .in1(in01[32:0]), .in2(in02[32:0]), .sum(sum0[32:0]), .cry(cry0[33:1]));
    csa csa1(.in0(in10[32:0]), .in1(in11[32:0]), .in2(in12[32:0]), .sum(sum1[32:0]), .cry(cry1[33:1]));
@@ -355,7 +397,9 @@ module vscale_mul_div
       if(~req_ready) begin
          buf2 <= out2;
          buf1 <= out1;
-         buf0 <= out0;
+         if(~fpu_ex)begin
+            buf0 <= out0;
+         end
       end
       if(reset) begin
          i<=0;
@@ -446,11 +490,25 @@ module vscale_mul_div
             //TEMP//TEMP//special case
             i<=5;
             sgn1 <= req_in_1[31]^req_in_2[31];
-            expr <= expx + expy - 127;//TEMP//TEMP//
+            expr <= exps;
             xh<={8'h00,(req_in_1[30:23]!=8'h00),req_in_1[22:0]};
+         end else if((req_op==`MDF_OP_FMA)|(req_op==`MDF_OP_FNA)|(req_op==`MDF_OP_FMS)|(req_op==`MDF_OP_FNS)) begin // req cycle FPU MADD
+            fpu_ex <= 1'b0;
+            //TEMP//TEMP//special case
+            i<=5;
+            xh<={8'h00,(req_in_1[30:23]!=8'h00),req_in_1[22:0]};
+            xl<={8'h00,(req_in_3[30:23]!=8'h00),req_in_3[22:0]};
+            if(exps>=0)begin
+               sgn1 <= req_in_1[31]^req_in_2[31]^(req_op==`MDF_OP_FNA)^(req_op==`MDF_OP_FNS);
+               sgn0 <= req_in_3[31]^(req_op==`MDF_OP_FNA)^(req_op==`MDF_OP_FMS);
+               expr <= expm;
+               expd <= exps;
+            end else begin
+            end
          end
       end else begin
-         if(((op==`MDF_OP_MUL)|(op==`MDF_OP_FML))&(i>0)) begin // cont cycle MUL
+         if(((op==`MDF_OP_MUL)&(i>0))|((op==`MDF_OP_FML)&(i>0))|
+            (((op==`MDF_OP_FMA)|(op==`MDF_OP_FNA)|(op==`MDF_OP_FMS)|(op==`MDF_OP_FNS))&(i>1))) begin // cont cycle MUL
             ng2 <= (br2[2:1]==2'b10)|(br2[2:0]==3'b110);
             if(i!=2)
               ng5 <= (br5[2:1]==2'b10)|(br5[2:0]==3'b110);
@@ -460,7 +518,7 @@ module vscale_mul_div
                {fracr[25:0],guard[26:0]} <= {out2[24:0],out1[31:5],|out1[4:0]}; //TEMP//TEMP//TEMP//
                resp_valid <= 1'b1;
                i<=0;
-            end else if((op==`MDF_OP_MUL)&(i==1))begin
+            end else if(i==1)begin
                resp_valid <= 1'b1;
                i<=i-1;
             end else begin
@@ -491,7 +549,11 @@ module vscale_mul_div
          end else if((op==`MDF_OP_FAD)|(op==`MDF_OP_FSB)) begin // cont cycle FAD FSB
             {fracr[25:0],guard[26:0]} <= {out2[20:0],out1[31:0]};
             if(resp_valid) fop <= op;
-         end else if((op==`MDF_OP_FML)&(resp_valid))begin
+         end else if(((op==`MDF_OP_FMA)|(op==`MDF_OP_FNA)|(op==`MDF_OP_FMS)|(op==`MDF_OP_FNS))&(i==1)) begin // cont cycle FMADD
+            {fracr[25:0],guard[26:0]} <= {out2[24:0],out1[31:5],|out1[4:0]}; //TEMP//TEMP//TEMP//
+            resp_valid <= 1'b1;
+            i<=0;
+         end else if(((op==`MDF_OP_FML)|(op==`MDF_OP_FMA)|(op==`MDF_OP_FNA)|(op==`MDF_OP_FMS)|(op==`MDF_OP_FNS))&(resp_valid))begin
             fop <= op;
          end
       end // cont cycle
