@@ -1,3 +1,5 @@
+`define RISCV
+
 `define MDF_OP_WIDTH 4
 `define MDF_OP_MUL `MDF_OP_WIDTH'h0
 `define MDF_OP_DIV `MDF_OP_WIDTH'h1
