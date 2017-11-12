@@ -48,7 +48,6 @@ RV32_TESTS = \
     rv32um-p-remu \
     rv32uf-p-ldst \
     rv32uf-p-move \
-    rv32uf-p-fsgnj \
     rv32uf-p-fadd \
     rv32uf-p-fmadd \
     rv32mi-p-illegal \
