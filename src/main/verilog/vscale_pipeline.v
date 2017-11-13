@@ -15,11 +15,11 @@ module vscale_pipeline
    input [`XPR_LEN-1:0]         imem_rdata,
    input                        imem_badmem_e,
    input                        dmem_wait,
-   output                       dmem_en,
-   output                       dmem_wen,
+   output                       dmem_read,
+   output                       dmem_write,
    output [`MEM_TYPE_WIDTH-1:0] dmem_size,
    output [`XPR_LEN-1:0]        dmem_addr,
-   output [`XPR_LEN-1:0]        dmem_wdata_delayed,
+   output [`XPR_LEN-1:0]        dmem_wdata,
    input [`XPR_LEN-1:0]         dmem_rdata,
    input                        dmem_badmem_e
    );
@@ -113,7 +113,6 @@ module vscale_pipeline
    reg [`XPR_LEN-1:0]                           PC_WB;
    reg [`XPR_LEN-1:0]                           alu_out_WB;
    reg [`XPR_LEN-1:0]                           csr_rdata_WB;
-   reg [`XPR_LEN-1:0]                           store_data_WB;
 
    wire                                         kill_WB;
    wire                                         stall_WB;
@@ -170,8 +169,8 @@ module vscale_pipeline
                     .bypass_frs2(bypass_frs2),
                     .bypass_frs3(bypass_frs3),
                     .alu_op(alu_op),
-                    .dmem_en(dmem_en),
-                    .dmem_wen(dmem_wen),
+                    .dmem_read(dmem_read),
+                    .dmem_write(dmem_write),
                     .dmem_size(dmem_size),
                     .dmem_type(dmem_type),
                     .md_req_valid(md_req_valid),
@@ -363,15 +362,10 @@ module vscale_pipeline
       if (reset) begin
 `ifndef SYNTHESIS
          PC_WB <= $random;
-         store_data_WB <= $random;
          alu_out_WB <= $random;
 `endif
       end else if (~stall_WB) begin
          PC_WB <= PC_DX;
-         if(src_f_sel)
-           store_data_WB <= frs2_data;
-         else
-           store_data_WB <= rs2_data;
          alu_out_WB <= alu_out;
          csr_rdata_WB <= csr_rdata;
          dmem_type_WB <= dmem_type;
@@ -399,9 +393,7 @@ module vscale_pipeline
       endcase
    end
 
-
-   assign dmem_wdata_delayed = store_data(alu_out_WB,store_data_WB,dmem_type_WB);
-
+   assign dmem_wdata = store_data(alu_out,((src_f_sel)?frs2_data:rs2_data),dmem_type);
 
    // CSR
 

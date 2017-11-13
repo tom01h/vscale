@@ -10,29 +10,23 @@ module vscale_sim_top(
 
    wire                          resetn;
 
-   wire [`HASTI_ADDR_WIDTH-1:0]  imem_haddr;
-   wire                          imem_hwrite;
-   wire [`HASTI_SIZE_WIDTH-1:0]  imem_hsize;
-   wire [`HASTI_BURST_WIDTH-1:0] imem_hburst;
-   wire                          imem_hmastlock;
-   wire [`HASTI_PROT_WIDTH-1:0]  imem_hprot;
-   wire [`HASTI_TRANS_WIDTH-1:0] imem_htrans;
-   wire [`HASTI_BUS_WIDTH-1:0]   imem_hwdata;
-   wire [`HASTI_BUS_WIDTH-1:0]   imem_hrdata;
-   wire                          imem_hready;
-   wire [`HASTI_RESP_WIDTH-1:0]  imem_hresp;
+   wire [`HASTI_ADDR_WIDTH-1:0]  imem_addr;
+   wire                          imem_read;
+   wire                          imem_write;
+   wire [`HASTI_SIZE_WIDTH-1:0]  imem_size;
+   wire [`HASTI_BUS_WIDTH-1:0]   imem_wdata;
+   wire [`HASTI_BUS_WIDTH-1:0]   imem_rdata;
+   wire                          imem_ready;
+   wire [`HASTI_RESP_WIDTH-1:0]  imem_resp;
 
-   wire [`HASTI_ADDR_WIDTH-1:0]  dmem_haddr;
-   wire                          dmem_hwrite;
-   wire [`HASTI_SIZE_WIDTH-1:0]  dmem_hsize;
-   wire [`HASTI_BURST_WIDTH-1:0] dmem_hburst;
-   wire                          dmem_hmastlock;
-   wire [`HASTI_PROT_WIDTH-1:0]  dmem_hprot;
-   wire [`HASTI_TRANS_WIDTH-1:0] dmem_htrans;
-   wire [`HASTI_BUS_WIDTH-1:0]   dmem_hwdata;
-   wire [`HASTI_BUS_WIDTH-1:0]   dmem_hrdata;
-   wire                          dmem_hready;
-   wire [`HASTI_RESP_WIDTH-1:0]  dmem_hresp;
+   wire [`HASTI_ADDR_WIDTH-1:0]  dmem_addr;
+   wire                          dmem_read;
+   wire                          dmem_write;
+   wire [`HASTI_SIZE_WIDTH-1:0]  dmem_size;
+   wire [`HASTI_BUS_WIDTH-1:0]   dmem_wdata;
+   wire [`HASTI_BUS_WIDTH-1:0]   dmem_rdata;
+   wire                          dmem_ready;
+   wire [`HASTI_RESP_WIDTH-1:0]  dmem_resp;
 
    assign resetn = ~reset;
 
@@ -115,55 +109,43 @@ module vscale_sim_top(
                       .clk(clk),
                       .reset(reset),
                       .ext_interrupts(`N_EXT_INTS'b0),
-                      .imem_haddr(imem_haddr),
-                      .imem_hwrite(imem_hwrite),
-                      .imem_hsize(imem_hsize),
-                      .imem_hburst(imem_hburst),
-                      .imem_hmastlock(imem_hmastlock),
-                      .imem_hprot(imem_hprot),
-                      .imem_htrans(imem_htrans),
-                      .imem_hwdata(imem_hwdata),
-                      .imem_hrdata(imem_hrdata),
-                      .imem_hready(imem_hready),
-                      .imem_hresp(imem_hresp),
-                      .dmem_haddr(dmem_haddr),
-                      .dmem_hwrite(dmem_hwrite),
-                      .dmem_hsize(dmem_hsize),
-                      .dmem_hburst(dmem_hburst),
-                      .dmem_hmastlock(dmem_hmastlock),
-                      .dmem_hprot(dmem_hprot),
-                      .dmem_htrans(dmem_htrans),
-                      .dmem_hwdata(dmem_hwdata),
-                      .dmem_hrdata(dmem_hrdata),
-                      .dmem_hready(dmem_hready),
-                      .dmem_hresp(dmem_hresp)
+                      .imem_addr(imem_addr),
+                      .imem_read(imem_read),
+                      .imem_write(imem_write),
+                      .imem_size(imem_size),
+                      .imem_wdata(imem_wdata),
+                      .imem_rdata(imem_rdata),
+                      .imem_ready(imem_ready),
+                      .imem_resp(imem_resp),
+                      .dmem_addr(dmem_addr),
+                      .dmem_read(dmem_read),
+                      .dmem_write(dmem_write),
+                      .dmem_size(dmem_size),
+                      .dmem_wdata(dmem_wdata),
+                      .dmem_rdata(dmem_rdata),
+                      .dmem_ready(dmem_ready),
+                      .dmem_resp(dmem_resp)
                       );
 
    vscale_dp_hasti_sram hasti_mem(
                                   .hclk(clk),
                                   .hresetn(resetn),
-                                  .p1_haddr(imem_haddr),
-                                  .p1_hwrite(imem_hwrite),
-                                  .p1_hsize(imem_hsize),
-                                  .p1_hburst(imem_hburst),
-                                  .p1_hmastlock(imem_hmastlock),
-                                  .p1_hprot(imem_hprot),
-                                  .p1_htrans(imem_htrans),
-                                  .p1_hwdata(imem_hwdata),
-                                  .p1_hrdata(imem_hrdata),
-                                  .p1_hready(imem_hready),
-                                  .p1_hresp(imem_hresp),
-                                  .p0_haddr(dmem_haddr),
-                                  .p0_hwrite(dmem_hwrite),
-                                  .p0_hsize(dmem_hsize),
-                                  .p0_hburst(dmem_hburst),
-                                  .p0_hmastlock(dmem_hmastlock),
-                                  .p0_hprot(dmem_hprot),
-                                  .p0_htrans(dmem_htrans),
-                                  .p0_hwdata(dmem_hwdata),
-                                  .p0_hrdata(dmem_hrdata),
-                                  .p0_hready(dmem_hready),
-                                  .p0_hresp(dmem_hresp)
+                                  .p1_addr(imem_addr),
+                                  .p1_read(imem_read),
+                                  .p1_write(imem_write),
+                                  .p1_size(imem_size),
+                                  .p1_wdata(imem_wdata),
+                                  .p1_rdata(imem_rdata),
+                                  .p1_ready(imem_ready),
+                                  .p1_resp(imem_resp),
+                                  .p0_addr(dmem_addr),
+                                  .p0_read(dmem_read),
+                                  .p0_write(dmem_write),
+                                  .p0_size(dmem_size),
+                                  .p0_wdata(dmem_wdata),
+                                  .p0_rdata(dmem_rdata),
+                                  .p0_ready(dmem_ready),
+                                  .p0_resp(dmem_resp)
                                   );
 
 endmodule // vscale_sim_top

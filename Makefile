@@ -58,7 +58,6 @@ SIMV_OPTS = -k $(OUT_DIR)/ucli.key -q
 
 DESIGN_SRCS = $(addprefix $(V_SRC_DIR)/, \
 vscale_core.v \
-vscale_hasti_bridge.v \
 vscale_pipeline.v \
 vscale_ctrl.v \
 vscale_regfile.v \
